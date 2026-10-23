@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>خدمات حرة — سوق الحراج اليمني</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<main>
+  <div class="container">
+    <div class="page-head">
+      <h2>🛠️ خدمات حرة</h2>
+      <p>مقاولين، دهان، صيانة، مواهب... أي خدمة لم تجد لها قسمًا، أضف تصنيفها وانشرها</p>
+    </div>
+
+    <div class="flex-row" style="gap:8px;margin-bottom:10px">
+      <button class="btn btn-outline" id="toggle-cat-form">+ أضف تصنيف جديد</button>
+      <button class="btn btn-amber" id="toggle-form">+ أضف خدمتي</button>
+    </div>
+
+    <form id="add-cat-form" class="card" style="display:none;margin-bottom:12px">
+      <div class="field-row">
+        <div class="field" style="flex:2">
+          <label>اسم التصنيف</label>
+          <input type="text" id="c-name" placeholder="مثال: مقاولين، دهان، كهربائي..." required>
+        </div>
+        <div class="field" style="flex:1">
+          <label>رمز (اختياري)</label>
+          <input type="text" id="c-icon" placeholder="🛠️" maxlength="4">
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit">إضافة التصنيف</button>
+    </form>
+
+    <form id="add-form" class="card" style="display:none;margin-bottom:12px">
+      <div class="field">
+        <label>التصنيف</label>
+        <select id="f-category" required></select>
+      </div>
+      <div class="field">
+        <label>عنوان الخدمة</label>
+        <input type="text" id="f-title" placeholder="مثال: مقاول تشطيبات وصيانة عامة" required>
+      </div>
+      <div class="field">
+        <label>وصف الخدمة</label>
+        <textarea id="f-desc" placeholder="اشرح خدمتك، خبرتك، ما تقدمه..."></textarea>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>المدينة</label>
+          <input type="text" id="f-city" placeholder="صنعاء">
+        </div>
+        <div class="field">
+          <label>السعر / ملاحظة السعر</label>
+          <input type="text" id="f-price" placeholder="يبدأ من... / حسب الحالة">
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit" id="submit-btn">نشر الخدمة</button>
+    </form>
+
+    <div class="tabs" id="cat-tabs" style="flex-wrap:wrap">
+      <button data-c="all" class="active">الكل</button>
+    </div>
+
+    <div id="services-list"></div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/data.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  initChrome("services");
+
+  let categories = [];
+  let activeCat = "all";
+
+  const catForm = document.getElementById("add-cat-form");
+  document.getElementById("toggle-cat-form").onclick = () => {
+    DB.currentUser().then((u) => {
+      if (!u) { window.location.href = "/pages/auth.html?next=" + encodeURIComponent(window.location.pathname); return; }
+      catForm.style.display = catForm.style.display === "none" ? "" : "none";
+    });
+  };
+
+  catForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await DB.serviceCategories.add({
+        name: document.getElementById("c-name").value.trim(),
+        icon: document.getElementById("c-icon").value.trim(),
+      });
+      toast("تم إضافة التصنيف");
+      catForm.reset(); catForm.style.display = "none";
+      await loadCategories();
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  const form = document.getElementById("add-form");
+  document.getElementById("toggle-form").onclick = () => {
+    DB.currentUser().then((u) => {
+      if (!u) { window.location.href = "/pages/auth.html?next=" + encodeURIComponent(window.location.pathname); return; }
+      if (!categories.length) { toast("أضف تصنيفًا أولاً", "error"); return; }
+      form.style.display = form.style.display === "none" ? "" : "none";
+    });
+  };
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const submitBtn = document.getElementById("submit-btn");
+    submitBtn.disabled = true;
+    try {
+      await DB.serviceListings.add({
+        categoryId: document.getElementById("f-category").value,
+        title: document.getElementById("f-title").value.trim(),
+        description: document.getElementById("f-desc").value.trim(),
+        city: document.getElementById("f-city").value.trim(),
+        priceNote: document.getElementById("f-price").value.trim(),
+      });
+      toast("تم نشر خدمتك");
+      form.reset(); form.style.display = "none";
+      loadList();
+    } catch (err) {
+      toast(err.message, "error");
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  async function loadCategories() {
+    categories = await DB.serviceCategories.list();
+    const sel = document.getElementById("f-category");
+    sel.innerHTML = categories.map((c) => `<option value="${c.id}">${esc(c.icon)} ${esc(c.name)}</option>`).join("");
+    const tabs = document.getElementById("cat-tabs");
+    tabs.innerHTML = `<button data-c="all" class="${activeCat === "all" ? "active" : ""}">الكل</button>` +
+      categories.map((c) => `<button data-c="${c.id}" class="${activeCat === c.id ? "active" : ""}">${esc(c.icon)} ${esc(c.name)}</button>`).join("");
+    tabs.querySelectorAll("button").forEach((b) => {
+      b.onclick = () => {
+        tabs.querySelectorAll("button").forEach((x) => x.classList.remove("active"));
+        b.classList.add("active");
+        activeCat = b.dataset.c;
+        loadList();
+      };
+    });
+    loadList();
+  }
+
+  function catLabel(id) {
+    const c = categories.find((x) => x.id === id);
+    return c ? `${c.icon} ${c.name}` : "";
+  }
+
+  async function loadList() {
+    const me = await DB.currentUser();
+    const items = await DB.serviceListings.list((i) => i.status === "active");
+    const filtered = activeCat === "all" ? items : items.filter((i) => i.categoryId === activeCat);
+    const box = document.getElementById("services-list");
+    if (!filtered.length) {
+      box.innerHTML = `<div class="empty-state"><span class="ic">🛠️</span>ما فيه خدمات في هذا التصنيف حتى الآن. كن أول من ينشر!</div>`;
+      return;
+    }
+    box.innerHTML = filtered.map((i) => `
+      <div class="card listing-card">
+        <div class="top-row">
+          <h4>${esc(i.title)}</h4>
+          ${i.priceNote ? `<span class="price-tag">${esc(i.priceNote)}</span>` : ""}
+        </div>
+        <div class="meta-row">
+          <span class="badge">${esc(catLabel(i.categoryId))}</span>
+          ${i.city ? `<span>📍 ${esc(i.city)}</span>` : ""}
+        </div>
+        ${i.description ? `<p style="margin:4px 0 0;font-size:.85rem;color:var(--ink-light)">${esc(i.description)}</p>` : ""}
+        <div class="meta-row" style="justify-content:space-between;margin-top:6px">
+          <span style="font-size:.72rem">نشره ${esc(i.providerName)}${i.providerOnline ? ' <span class="dot on" title="متصل الآن"></span>' : ''} · ${timeAgo(i.createdAt)}</span>
+          ${me && me.id === i.providerId ? "" : `<button class="btn btn-sm btn-primary" onclick="goChat('${i.providerId}','service','${i.id}','${esc(i.providerName)}')">تواصل</button>`}
+        </div>
+      </div>
+    `).join("");
+  }
+
+  loadCategories();
+  renderFooter();
+</script>
+</body>
+</html>

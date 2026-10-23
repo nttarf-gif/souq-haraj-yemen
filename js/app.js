@@ -7,6 +7,7 @@ const SECTIONS = [
   { key: "vehicles", icon: "🚖", title: "نقل ركاب", desc: "مثل أوبر صغير", href: "/pages/vehicles.html" },
   { key: "shipping", icon: "📦", title: "شحن", desc: "اشحن أي شيء", href: "/pages/shipping.html" },
   { key: "transfer", icon: "💸", title: "تحويل ودايع", desc: "اليمن ↔ السعودية", href: "/pages/transfer.html" },
+  { key: "services", icon: "🛠️", title: "خدمات حرة", desc: "مقاولين، دهان، مواهب", href: "/pages/services.html" },
 ];
 
 function fmtPrice(amount, currency) {

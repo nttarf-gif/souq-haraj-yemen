@@ -133,6 +133,27 @@
       ],
       listCols: ["amount", "currency", "status", "created_at"],
     },
+    serviceCategories: {
+      label: "تصنيفات الخدمات", icon: "🛠️", canAdd: true, canDelete: true,
+      columns: [
+        { key: "name", label: "الاسم", type: "text", required: true },
+        { key: "icon", label: "الرمز", type: "text" },
+        { key: "created_at", label: "التاريخ", type: "date", readonly: true },
+      ],
+      listCols: ["icon", "name", "created_at"],
+    },
+    serviceListings: {
+      label: "الخدمات الحرة", icon: "🧰", canAdd: false, canDelete: true,
+      columns: [
+        { key: "title", label: "العنوان", type: "text", required: true },
+        { key: "description", label: "الوصف", type: "textarea" },
+        { key: "city", label: "المدينة", type: "text" },
+        { key: "price_note", label: "ملاحظة السعر", type: "text" },
+        { key: "status", label: "الحالة", type: "enum", options: ["active", "paused", "removed"] },
+        { key: "created_at", label: "التاريخ", type: "date", readonly: true },
+      ],
+      listCols: ["title", "city", "status", "created_at"],
+    },
   };
 
   const STATUS_LABELS = {
@@ -144,6 +165,7 @@
     pending_review: "بانتظار المراجعة", confirmed: "مؤكد", rejected: "مرفوض",
     premium_subscription: "اشتراك مميز", featured_listing: "إعلان مميز", ride_commission: "عمولة رحلة", shipment_commission: "عمولة شحن",
     manual: "مراجعة يدوية", gateway: "بوابة دفع تلقائية",
+    paused: "متوقف مؤقتًا",
   };
   function statusLabel(v) { return STATUS_LABELS[v] || v; }
 

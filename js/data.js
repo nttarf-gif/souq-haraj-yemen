@@ -227,6 +227,78 @@ const DB = (() => {
     };
   }
 
+  // ---------------- تصنيفات وخدمات حرة ----------------
+  const serviceCategories = {
+    async list() {
+      const { data, error } = await sb.from("service_categories").select("*").order("name", { ascending: true });
+      if (error) throw new Error(error.message);
+      return (data || []).map(mapServiceCategory);
+    },
+    async add({ name, icon }) {
+      const u = await requireAuth();
+      const { data, error } = await sb.from("service_categories").insert({
+        name: name.trim(), icon: icon || "🛠️", created_by: u.id,
+      }).select().single();
+      if (error) throw new Error(error.message);
+      return mapServiceCategory(data);
+    },
+  };
+  function mapServiceCategory(d) {
+    return { id: d.id, name: d.name, icon: d.icon || "🛠️", createdBy: d.created_by, createdAt: d.created_at };
+  }
+
+  const serviceListings = {
+    async list(filterFn) {
+      const { data, error } = await sb.from("service_listings")
+        .select("*, provider:profiles!provider_id(full_name,phone,last_seen_at)")
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      let items = (data || []).map(mapServiceListing);
+      if (filterFn) items = items.filter(filterFn);
+      return items;
+    },
+    async add({ categoryId, title, description, city, priceNote }) {
+      const u = await requireAuth();
+      const { data, error } = await sb.from("service_listings").insert({
+        category_id: categoryId, provider_id: u.id, title: title.trim(),
+        description: (description || "").trim(), city: (city || "").trim(), price_note: (priceNote || "").trim(),
+      }).select().single();
+      if (error) throw new Error(error.message);
+      return mapServiceListing(data);
+    },
+    async update(id, patch) {
+      const row = {};
+      if (patch.status !== undefined) row.status = patch.status;
+      if (patch.title !== undefined) row.title = patch.title;
+      if (patch.description !== undefined) row.description = patch.description;
+      if (patch.city !== undefined) row.city = patch.city;
+      if (patch.priceNote !== undefined) row.price_note = patch.priceNote;
+      const { data, error } = await sb.from("service_listings").update(row).eq("id", id).select().single();
+      if (error) throw new Error(error.message);
+      return mapServiceListing(data);
+    },
+    async remove(id) {
+      const { error } = await sb.from("service_listings").delete().eq("id", id);
+      if (error) throw new Error(error.message);
+    },
+  };
+  function mapServiceListing(d) {
+    return {
+      id: d.id,
+      categoryId: d.category_id,
+      providerId: d.provider_id,
+      providerName: d.provider?.full_name || "مستخدم",
+      providerPhone: d.provider?.phone || "",
+      providerOnline: isOnline(d.provider?.last_seen_at),
+      title: d.title,
+      description: d.description || "",
+      city: d.city || "",
+      priceNote: d.price_note || "",
+      status: d.status,
+      createdAt: d.created_at,
+    };
+  }
+
   // ---------------- مركبات / نقل ركاب ----------------
   const rides = {
     async list(filterFn) {
@@ -464,6 +536,8 @@ const DB = (() => {
     payments:   { table: "wallet_payments",       idCol: "id" },
     drivers:    { table: "drivers",               idCol: "id" },
     offers:     { table: "listing_offers",        idCol: "id" },
+    serviceCategories: { table: "service_categories", idCol: "id" },
+    serviceListings:   { table: "service_listings",   idCol: "id" },
   };
 
   const admin = {
@@ -518,6 +592,7 @@ const DB = (() => {
     currentUser, signup, login, logout, requireAuth, uploadImage, notifyInterested,
     touchPresence, isOnline,
     realEstate, rides, shipments, transfers, payments, messages, offers,
+    serviceCategories, serviceListings,
     admin,
   };
 })();
