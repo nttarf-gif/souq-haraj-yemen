@@ -189,6 +189,44 @@ const DB = (() => {
     return out;
   }
 
+  // ---------------- مزاد / سوم على الإعلانات ----------------
+  const offers = {
+    async listForListing(listingId) {
+      const { data, error } = await sb.from("listing_offers")
+        .select("*, bidder:profiles!bidder_id(full_name,phone)")
+        .eq("listing_id", listingId)
+        .order("amount", { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data || []).map(mapOffer);
+    },
+    async add({ listingId, amount, currency }) {
+      const u = await requireAuth();
+      const { data, error } = await sb.from("listing_offers").insert({
+        listing_id: listingId, bidder_id: u.id, amount, currency: currency || "YER",
+      }).select().single();
+      if (error) throw new Error(error.message);
+      return mapOffer(data);
+    },
+    async setStatus(id, status) {
+      const { data, error } = await sb.from("listing_offers").update({ status }).eq("id", id).select().single();
+      if (error) throw new Error(error.message);
+      return mapOffer(data);
+    },
+  };
+  function mapOffer(d) {
+    return {
+      id: d.id,
+      listingId: d.listing_id,
+      bidderId: d.bidder_id,
+      bidderName: d.bidder?.full_name || "مستخدم",
+      bidderPhone: d.bidder?.phone || "",
+      amount: d.amount,
+      currency: d.currency,
+      status: d.status,
+      createdAt: d.created_at,
+    };
+  }
+
   // ---------------- مركبات / نقل ركاب ----------------
   const rides = {
     async list(filterFn) {
@@ -425,6 +463,7 @@ const DB = (() => {
     transfers:  { table: "transfer_requests",     idCol: "id" },
     payments:   { table: "wallet_payments",       idCol: "id" },
     drivers:    { table: "drivers",               idCol: "id" },
+    offers:     { table: "listing_offers",        idCol: "id" },
   };
 
   const admin = {
@@ -478,7 +517,7 @@ const DB = (() => {
   return {
     currentUser, signup, login, logout, requireAuth, uploadImage, notifyInterested,
     touchPresence, isOnline,
-    realEstate, rides, shipments, transfers, payments, messages,
+    realEstate, rides, shipments, transfers, payments, messages, offers,
     admin,
   };
 })();

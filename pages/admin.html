@@ -123,6 +123,16 @@
       ],
       listCols: ["vehicle_type", "plate_number", "city", "is_active", "created_at"],
     },
+    offers: {
+      label: "المزايدات", icon: "💰", canAdd: false, canDelete: true,
+      columns: [
+        { key: "amount", label: "المبلغ", type: "number" },
+        { key: "currency", label: "العملة", type: "text" },
+        { key: "status", label: "الحالة", type: "enum", options: ["pending", "accepted", "rejected"] },
+        { key: "created_at", label: "التاريخ", type: "date", readonly: true },
+      ],
+      listCols: ["amount", "currency", "status", "created_at"],
+    },
   };
 
   const STATUS_LABELS = {

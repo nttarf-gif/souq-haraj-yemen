@@ -183,10 +183,93 @@
         ${i.description ? `<p style="margin:4px 0 0;font-size:.85rem;color:var(--ink-light)">${esc(i.description)}</p>` : ""}
         <div class="meta-row" style="justify-content:space-between;margin-top:6px">
           <span style="font-size:.72rem">نشره ${esc(i.ownerName)}${i.ownerOnline ? ' <span class="dot on" title="متصل الآن"></span>' : ''} · ${timeAgo(i.createdAt)}</span>
-          ${me && me.id === i.ownerId ? "" : `<button class="btn btn-sm btn-primary" onclick="goChat('${i.ownerId}','real_estate','${i.id}','${esc(i.ownerName)}')">تواصل مع المعلن</button>`}
+          ${me && me.id === i.ownerId
+            ? `<button class="btn btn-sm btn-outline" data-view-offers="${i.id}">📋 عرض المزايدات</button>`
+            : `<div style="display:flex;gap:6px">
+                 <button class="btn btn-sm btn-outline" data-bid-toggle="${i.id}">💰 سوم</button>
+                 <button class="btn btn-sm btn-primary" onclick="goChat('${i.ownerId}','real_estate','${i.id}','${esc(i.ownerName)}')">تواصل</button>
+               </div>`}
         </div>
+        <div data-bid-form="${i.id}" style="display:none;margin-top:8px;gap:8px;align-items:stretch" class="flex-row">
+          <input type="number" placeholder="قيمة عرضك" data-bid-amount="${i.id}" style="flex:1;padding:9px 10px;border:1px solid var(--border);border-radius:8px">
+          <button class="btn btn-sm btn-amber" data-bid-submit="${i.id}" style="flex:none">إرسال العرض</button>
+        </div>
+        <div class="offers-box" data-offers-box="${i.id}" style="display:none;margin-top:8px"></div>
       </div>
     `).join("");
+
+    wireBidding(items, me);
+  }
+
+  const OFFER_STATUS_LABELS = { pending: "بانتظار الرد", accepted: "✅ مقبول", rejected: "✖️ مرفوض" };
+
+  function wireBidding(items, me) {
+    const byId = {};
+    items.forEach((i) => (byId[i.id] = i));
+
+    document.querySelectorAll("[data-bid-toggle]").forEach((btn) => {
+      btn.onclick = () => {
+        const id = btn.dataset.bidToggle;
+        const form = document.querySelector(`[data-bid-form="${id}"]`);
+        form.style.display = form.style.display === "flex" ? "none" : "flex";
+      };
+    });
+
+    document.querySelectorAll("[data-bid-submit]").forEach((btn) => {
+      btn.onclick = async () => {
+        const id = btn.dataset.bidSubmit;
+        const input = document.querySelector(`[data-bid-amount="${id}"]`);
+        const amount = Number(input.value);
+        if (!amount || amount <= 0) { toast("أدخل قيمة عرض صحيحة", "error"); return; }
+        const listing = byId[id];
+        try {
+          await DB.requireAuth();
+          await DB.offers.add({ listingId: id, amount, currency: listing.currency });
+          await DB.messages.add({
+            receiverId: listing.ownerId, contextType: "real_estate", contextId: id,
+            body: `💰 عرض جديد بقيمة ${fmtPrice(amount, listing.currency)} على إعلانك "${listing.title}"`,
+          });
+          toast("تم إرسال عرضك وإشعار صاحب الإعلان");
+          input.value = "";
+        } catch (err) { toast(err.message, "error"); }
+      };
+    });
+
+    document.querySelectorAll("[data-view-offers]").forEach((btn) => {
+      btn.onclick = async () => {
+        const id = btn.dataset.viewOffers;
+        const box = document.querySelector(`[data-offers-box="${id}"]`);
+        if (box.style.display === "block") { box.style.display = "none"; return; }
+        box.style.display = "block";
+        box.innerHTML = `<p style="font-size:.78rem;color:var(--ink-light)">جارِ التحميل...</p>`;
+        try {
+          const offers = await DB.offers.listForListing(id);
+          if (!offers.length) { box.innerHTML = `<p style="font-size:.78rem;color:var(--ink-light)">لا توجد عروض بعد</p>`; return; }
+          box.innerHTML = offers.map((o) => `
+            <div class="meta-row" style="justify-content:space-between;padding:6px 0;border-top:1px solid var(--border)">
+              <span style="font-size:.8rem">${esc(o.bidderName)}: <strong>${fmtPrice(o.amount, o.currency)}</strong> <span style="color:var(--ink-light)">(${OFFER_STATUS_LABELS[o.status]})</span></span>
+              ${o.status === "pending" ? `<button class="btn btn-sm btn-primary" data-accept-offer="${o.id}" data-offer-amount="${o.amount}" data-offer-currency="${o.currency}" data-offer-bidder="${o.bidderId}" data-offer-listing="${id}">قبول</button>` : ""}
+            </div>
+          `).join("");
+          box.querySelectorAll("[data-accept-offer]").forEach((abtn) => {
+            abtn.onclick = async () => {
+              try {
+                await DB.offers.setStatus(abtn.dataset.acceptOffer, "accepted");
+                await DB.messages.add({
+                  receiverId: abtn.dataset.offerBidder, contextType: "real_estate", contextId: abtn.dataset.offerListing,
+                  body: `🎉 تم قبول عرضك بقيمة ${fmtPrice(abtn.dataset.offerAmount, abtn.dataset.offerCurrency)}! تواصل مع المعلن لإتمام الصفقة`,
+                });
+                toast("تم القبول وإشعار صاحب العرض");
+                box.style.display = "none";
+                btn.click();
+              } catch (err) { toast(err.message, "error"); }
+            };
+          });
+        } catch (err) {
+          box.innerHTML = `<p style="font-size:.78rem;color:var(--danger)">${esc(err.message)}</p>`;
+        }
+      };
+    });
   }
 
   loadList();
