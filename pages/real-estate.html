@@ -217,7 +217,7 @@
         if (searchFilters.type) filtered = filtered.filter(i => i.propertyType === searchFilters.type);
         if (searchFilters.min) filtered = filtered.filter(i => Number(i.price) >= Number(searchFilters.min));
         if (searchFilters.max) filtered = filtered.filter(i => Number(i.price) <= Number(searchFilters.max));
-        renderList(filtered, me);
+        renderList(rankByBump(filtered), me);
       });
     });
   }
@@ -249,7 +249,12 @@
         <div class="meta-row" style="justify-content:space-between;margin-top:6px">
           <span style="font-size:.72rem">نشره ${esc(i.ownerName)}${i.ownerOnline ? ' <span class="dot on" title="متصل الآن"></span>' : ''} · ${timeAgo(i.createdAt)}</span>
           ${me && me.id === i.ownerId
-            ? `<button class="btn btn-sm btn-outline" data-view-offers="${i.id}">📋 عرض المزايدات</button>`
+            ? `<div style="display:flex;gap:6px">
+                 <button class="btn btn-sm btn-outline" data-view-offers="${i.id}">📋 عرض المزايدات</button>
+                 ${bumpCooldownRemaining(i) === 0
+                   ? `<button class="btn btn-sm btn-amber" data-bump="${i.id}">⬆️ تحديث الإعلان</button>`
+                   : `<span style="font-size:.68rem;color:var(--ink-light);align-self:center">يمكن التحديث بعد ${Math.ceil(bumpCooldownRemaining(i) / 3600000)} س</span>`}
+               </div>`
             : `<div style="display:flex;gap:6px">
                  <button class="btn btn-sm btn-outline" data-bid-toggle="${i.id}">💰 سوم</button>
                  <button class="btn btn-sm btn-primary" onclick="goChat('${i.ownerId}','real_estate','${i.id}','${esc(i.ownerName)}')">تواصل</button>
@@ -276,6 +281,17 @@
           btn.textContent = nowFav ? "❤️" : "🤍";
           if (nowFav) favSet.add(id); else favSet.delete(id);
         } catch (err) { toast(err.message, "error"); }
+      };
+    });
+    document.querySelectorAll("[data-bump]").forEach((btn) => {
+      btn.onclick = async () => {
+        const id = btn.dataset.bump;
+        btn.disabled = true;
+        try {
+          await DB.realEstate.bump(id);
+          toast("تم تحديث إعلانك وأصبح بالأعلى");
+          loadList();
+        } catch (err) { toast(err.message, "error"); btn.disabled = false; }
       };
     });
   }

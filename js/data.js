@@ -173,6 +173,12 @@ const DB = (() => {
       if (error) throw new Error(error.message);
       return mapListing(data);
     },
+    // يحدّث طابع "آخر رفع" ليظهر الإعلان بالأعلى من جديد — مرة كل 24 ساعة كحد أقصى
+    async bump(id) {
+      const { data, error } = await sb.from("real_estate_listings").update({ bumped_at: new Date().toISOString() }).eq("id", id).select().single();
+      if (error) throw new Error(error.message);
+      return mapListing(data);
+    },
   };
 
   function mapListing(d) {
@@ -192,6 +198,7 @@ const DB = (() => {
       description: d.description,
       status: d.status,
       createdAt: d.created_at,
+      bumpedAt: d.bumped_at,
       ownerPhone: d.owner?.phone || "",
       ownerOnline: isOnline(d.owner?.last_seen_at),
       coverImageUrl: d.cover_image_url || "",
@@ -296,6 +303,12 @@ const DB = (() => {
       const { error } = await sb.from("service_listings").delete().eq("id", id);
       if (error) throw new Error(error.message);
     },
+    // يحدّث طابع "آخر رفع" ليظهر الإعلان بالأعلى من جديد — مرة كل 24 ساعة كحد أقصى
+    async bump(id) {
+      const { data, error } = await sb.from("service_listings").update({ bumped_at: new Date().toISOString() }).eq("id", id).select().single();
+      if (error) throw new Error(error.message);
+      return mapServiceListing(data);
+    },
   };
   function mapServiceListing(d) {
     return {
@@ -311,6 +324,7 @@ const DB = (() => {
       priceNote: d.price_note || "",
       status: d.status,
       createdAt: d.created_at,
+      bumpedAt: d.bumped_at,
     };
   }
 

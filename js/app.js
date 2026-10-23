@@ -24,6 +24,24 @@ function timeAgo(iso) {
   return Math.floor(diff / 86400) + " يوم";
 }
 
+const BUMP_COOLDOWN_MS = 24 * 3600 * 1000;
+
+// يرتّب الإعلانات بحيث يظهر الأحدث "رفعًا" (bumpedAt) أو نشرًا بالأعلى
+function rankByBump(items) {
+  return [...items].sort((a, b) => {
+    const ta = new Date(a.bumpedAt || a.createdAt).getTime();
+    const tb = new Date(b.bumpedAt || b.createdAt).getTime();
+    return tb - ta;
+  });
+}
+
+// كم باقي بالميلي ثانية قبل ما يقدر صاحب الإعلان يرفعه مرة ثانية (0 = يقدر الآن)
+function bumpCooldownRemaining(item) {
+  const last = item.bumpedAt || item.createdAt;
+  const elapsed = Date.now() - new Date(last).getTime();
+  return Math.max(0, BUMP_COOLDOWN_MS - elapsed);
+}
+
 function esc(s) {
   if (s === undefined || s === null) return "";
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
