@@ -538,6 +538,8 @@ const DB = (() => {
     offers:     { table: "listing_offers",        idCol: "id" },
     serviceCategories: { table: "service_categories", idCol: "id" },
     serviceListings:   { table: "service_listings",   idCol: "id" },
+    prohibitedKeywords: { table: "prohibited_keywords", idCol: "id" },
+    adminAlerts:        { table: "admin_alerts",         idCol: "id" },
   };
 
   const admin = {
@@ -572,6 +574,10 @@ const DB = (() => {
         counts[k] = error ? 0 : (count || 0);
       }));
       return counts;
+    },
+    async openAlertsCount() {
+      const { count, error } = await sb.from("admin_alerts").select("*", { count: "exact", head: true }).eq("status", "open");
+      return error ? 0 : (count || 0);
     },
   };
 

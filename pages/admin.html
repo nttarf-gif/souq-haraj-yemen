@@ -154,6 +154,25 @@
       ],
       listCols: ["title", "city", "status", "created_at"],
     },
+    prohibitedKeywords: {
+      label: "كلمات ممنوعة", icon: "🚫", canAdd: true, canDelete: true,
+      columns: [
+        { key: "keyword", label: "الكلمة", type: "text", required: true },
+        { key: "created_at", label: "التاريخ", type: "date", readonly: true },
+      ],
+      listCols: ["keyword", "created_at"],
+    },
+    adminAlerts: {
+      label: "تنبيهات ممنوعات", icon: "🚨", canAdd: false, canDelete: true,
+      columns: [
+        { key: "table_name", label: "القسم", type: "text", readonly: true },
+        { key: "keyword", label: "الكلمة المطابقة", type: "text", readonly: true },
+        { key: "snippet", label: "مقتطف النص", type: "textarea", readonly: true },
+        { key: "status", label: "الحالة", type: "enum", options: ["open", "reviewed", "dismissed"] },
+        { key: "created_at", label: "التاريخ", type: "date", readonly: true },
+      ],
+      listCols: ["table_name", "keyword", "status", "created_at"],
+    },
   };
 
   const STATUS_LABELS = {
@@ -166,6 +185,7 @@
     premium_subscription: "اشتراك مميز", featured_listing: "إعلان مميز", ride_commission: "عمولة رحلة", shipment_commission: "عمولة شحن",
     manual: "مراجعة يدوية", gateway: "بوابة دفع تلقائية",
     paused: "متوقف مؤقتًا",
+    reviewed: "✅ تمت المراجعة", dismissed: "✖️ تم التجاهل",
   };
   function statusLabel(v) { return STATUS_LABELS[v] || v; }
 
@@ -221,9 +241,16 @@
   }
 
   async function renderDashboard(body) {
-    let stats;
-    try { stats = await DB.admin.stats(); } catch (err) { body.innerHTML = `<div class="alert alert-danger">${esc(err.message)}</div>`; return; }
+    let stats, openAlerts;
+    try {
+      stats = await DB.admin.stats();
+      openAlerts = await DB.admin.openAlertsCount();
+    } catch (err) { body.innerHTML = `<div class="alert alert-danger">${esc(err.message)}</div>`; return; }
     body.innerHTML = `
+      ${openAlerts > 0 ? `
+        <div class="alert alert-danger" style="cursor:pointer" id="open-alerts-banner">
+          🚨 يوجد ${openAlerts} تنبيه مراقبة مفتوح (احتمال بيع ممنوعات) — اضغط هنا للمراجعة
+        </div>` : ""}
       <div class="admin-stats">
         ${Object.keys(ENTITIES).map((k) => `
           <div class="admin-stat">
@@ -233,6 +260,14 @@
       </div>
       <div class="alert alert-info">💡 اضغط على أي قسم من الأعلى لعرض بياناته والتحكم بها: تعديل، حذف، أو إضافة جديد مباشرة من هنا — دون المساس بالكود البرمجي.</div>
     `;
+    const banner = document.getElementById("open-alerts-banner");
+    if (banner) {
+      banner.onclick = () => {
+        [...document.querySelectorAll("#admin-tabs button")].forEach((b) => b.classList.remove("active"));
+        document.querySelector('#admin-tabs button[data-t="adminAlerts"]').classList.add("active");
+        showTab("adminAlerts");
+      };
+    }
   }
 
   async function renderEntity(key, body) {
