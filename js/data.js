@@ -28,6 +28,7 @@ const DB = (() => {
       country: data.country,
       city: data.city,
       isPremium: data.is_premium,
+      isAdmin: data.is_admin,
       createdAt: data.created_at,
     };
     return cachedProfile;
@@ -361,8 +362,55 @@ const DB = (() => {
     },
   };
 
+  // ---------------- Admin panel (generic CRUD, admin-only via RLS) ----------------
+  const ADMIN_TABLES = {
+    profiles:   { table: "profiles",             idCol: "id" },
+    realEstate: { table: "real_estate_listings",  idCol: "id" },
+    rides:      { table: "ride_requests",         idCol: "id" },
+    shipments:  { table: "shipment_requests",     idCol: "id" },
+    transfers:  { table: "transfer_requests",     idCol: "id" },
+    payments:   { table: "wallet_payments",       idCol: "id" },
+    drivers:    { table: "drivers",               idCol: "id" },
+  };
+
+  const admin = {
+    async list(key) {
+      const cfg = ADMIN_TABLES[key];
+      const { data, error } = await sb.from(cfg.table).select("*").order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      return data || [];
+    },
+    async insert(key, row) {
+      const cfg = ADMIN_TABLES[key];
+      const { data, error } = await sb.from(cfg.table).insert(row).select().single();
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    async update(key, id, patch) {
+      const cfg = ADMIN_TABLES[key];
+      const { data, error } = await sb.from(cfg.table).update(patch).eq(cfg.idCol, id).select().single();
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    async remove(key, id) {
+      const cfg = ADMIN_TABLES[key];
+      const { error } = await sb.from(cfg.table).delete().eq(cfg.idCol, id);
+      if (error) throw new Error(error.message);
+    },
+    async stats() {
+      const keys = Object.keys(ADMIN_TABLES);
+      const counts = {};
+      await Promise.all(keys.map(async (k) => {
+        const { count, error } = await sb.from(ADMIN_TABLES[k].table).select("*", { count: "exact", head: true });
+        counts[k] = error ? 0 : (count || 0);
+      }));
+      return counts;
+    },
+  };
+
   return {
     currentUser, signup, login, logout, requireAuth,
     realEstate, rides, shipments, transfers, payments, messages,
+    admin,
   };
 })();

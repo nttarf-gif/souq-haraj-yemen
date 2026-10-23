@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>لوحة التحكم — سوق الحراج اليمني</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<main>
+  <div class="container" id="admin-root">
+    <div class="empty-state">جارِ التحقق من صلاحياتك...</div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/data.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  initChrome("");
+
+  // Entity definitions driving the generic admin CRUD UI.
+  // key -> { label, icon, canAdd, canDelete, columns[], listCols[] }
+  const ENTITIES = {
+    profiles: {
+      label: "المستخدمون", icon: "👤", canAdd: false, canDelete: true,
+      columns: [
+        { key: "full_name", label: "الاسم", type: "text", required: true },
+        { key: "phone", label: "الجوال", type: "text", required: true },
+        { key: "country", label: "الدولة", type: "text" },
+        { key: "city", label: "المدينة", type: "text" },
+        { key: "is_verified", label: "موثّق", type: "bool" },
+        { key: "is_premium", label: "عضوية مميزة", type: "bool" },
+        { key: "is_admin", label: "مشرف", type: "bool" },
+        { key: "created_at", label: "تاريخ التسجيل", type: "date", readonly: true },
+      ],
+      listCols: ["full_name", "phone", "city", "is_premium", "is_admin", "created_at"],
+    },
+    realEstate: {
+      label: "العقارات", icon: "🏠", canAdd: true, canDelete: true,
+      columns: [
+        { key: "title", label: "العنوان", type: "text", required: true },
+        { key: "property_type", label: "نوع العقار", type: "text" },
+        { key: "deal_type", label: "نوع العملية", type: "enum", options: ["sale", "rent"] },
+        { key: "price", label: "السعر", type: "number", required: true },
+        { key: "currency", label: "العملة", type: "text" },
+        { key: "country", label: "الدولة", type: "text" },
+        { key: "city", label: "المدينة", type: "text", required: true },
+        { key: "district", label: "الحي", type: "text" },
+        { key: "area_sqm", label: "المساحة م²", type: "number" },
+        { key: "rooms", label: "الغرف", type: "number" },
+        { key: "description", label: "الوصف", type: "textarea" },
+        { key: "status", label: "الحالة", type: "enum", options: ["active", "pending", "sold", "expired", "removed"] },
+        { key: "is_featured", label: "إعلان مميز", type: "bool" },
+        { key: "created_at", label: "التاريخ", type: "date", readonly: true },
+      ],
+      listCols: ["title", "price", "city", "status", "is_featured", "created_at"],
+    },
+    rides: {
+      label: "نقل الركاب", icon: "🚖", canAdd: false, canDelete: true,
+      columns: [
+        { key: "pickup_address", label: "من", type: "text", required: true },
+        { key: "dropoff_address", label: "إلى", type: "text", required: true },
+        { key: "city", label: "المدينة", type: "text" },
+        { key: "notes", label: "ملاحظات", type: "textarea" },
+        { key: "price_estimate", label: "السعر", type: "number" },
+        { key: "status", label: "الحالة", type: "enum", options: ["requested", "accepted", "in_progress", "completed", "cancelled"] },
+        { key: "created_at", label: "التاريخ", type: "date", readonly: true },
+      ],
+      listCols: ["pickup_address", "dropoff_address", "city", "status", "created_at"],
+    },
+    shipments: {
+      label: "الشحن", icon: "📦", canAdd: false, canDelete: true,
+      columns: [
+        { key: "from_city", label: "من مدينة", type: "text", required: true },
+        { key: "to_city", label: "إلى مدينة", type: "text", required: true },
+        { key: "item_description", label: "وصف الشحنة", type: "textarea" },
+        { key: "weight_kg", label: "الوزن كجم", type: "number" },
+        { key: "price_offer", label: "السعر", type: "number" },
+        { key: "status", label: "الحالة", type: "enum", options: ["posted", "matched", "in_transit", "delivered", "cancelled"] },
+        { key: "created_at", label: "التاريخ", type: "date", readonly: true },
+      ],
+      listCols: ["from_city", "to_city", "status", "created_at"],
+    },
+    transfers: {
+      label: "تحويل الودائع", icon: "💸", canAdd: false, canDelete: true,
+      columns: [
+        { key: "other_country", label: "الدولة الأخرى", type: "text" },
+        { key: "amount", label: "المبلغ", type: "number", required: true },
+        { key: "currency", label: "العملة", type: "text" },
+        { key: "preferred_wallet", label: "المحفظة", type: "text" },
+        { key: "city", label: "المدينة", type: "text" },
+        { key: "notes", label: "ملاحظات", type: "textarea" },
+        { key: "status", label: "الحالة", type: "enum", options: ["open", "matched", "completed", "cancelled"] },
+        { key: "created_at", label: "التاريخ", type: "date", readonly: true },
+      ],
+      listCols: ["other_country", "amount", "currency", "status", "created_at"],
+    },
+    payments: {
+      label: "المدفوعات", icon: "💳", canAdd: false, canDelete: false,
+      columns: [
+        { key: "wallet_name", label: "المحفظة", type: "text" },
+        { key: "amount", label: "المبلغ", type: "number" },
+        { key: "currency", label: "العملة", type: "text" },
+        { key: "purpose", label: "الغرض", type: "enum", options: ["premium_subscription", "featured_listing", "ride_commission", "shipment_commission"] },
+        { key: "transaction_reference", label: "رقم العملية", type: "text" },
+        { key: "payment_method", label: "طريقة التأكيد", type: "enum", options: ["manual", "gateway"] },
+        { key: "status", label: "الحالة", type: "enum", options: ["pending_review", "confirmed", "rejected"] },
+        { key: "created_at", label: "التاريخ", type: "date", readonly: true },
+      ],
+      listCols: ["wallet_name", "amount", "transaction_reference", "purpose", "status", "created_at"],
+    },
+    drivers: {
+      label: "السائقون", icon: "🚗", canAdd: false, canDelete: true,
+      columns: [
+        { key: "vehicle_type", label: "نوع المركبة", type: "text" },
+        { key: "vehicle_model", label: "موديل المركبة", type: "text" },
+        { key: "plate_number", label: "رقم اللوحة", type: "text" },
+        { key: "city", label: "المدينة", type: "text" },
+        { key: "is_active", label: "نشط", type: "bool" },
+        { key: "created_at", label: "التاريخ", type: "date", readonly: true },
+      ],
+      listCols: ["vehicle_type", "plate_number", "city", "is_active", "created_at"],
+    },
+  };
+
+  const STATUS_LABELS = {
+    active: "نشط", pending: "قيد المراجعة", sold: "مباع", expired: "منتهي", removed: "محذوف",
+    sale: "بيع", rent: "إيجار",
+    requested: "مطلوبة", accepted: "مقبولة", in_progress: "جارية", completed: "مكتملة", cancelled: "ملغاة",
+    posted: "منشورة", matched: "تم الربط", in_transit: "في الطريق", delivered: "تم التسليم",
+    open: "مفتوح",
+    pending_review: "بانتظار المراجعة", confirmed: "مؤكد", rejected: "مرفوض",
+    premium_subscription: "اشتراك مميز", featured_listing: "إعلان مميز", ride_commission: "عمولة رحلة", shipment_commission: "عمولة شحن",
+    manual: "مراجعة يدوية", gateway: "بوابة دفع تلقائية",
+  };
+  function statusLabel(v) { return STATUS_LABELS[v] || v; }
+
+  let meId = null;
+  const root = document.getElementById("admin-root");
+
+  async function boot() {
+    const u = await DB.currentUser();
+    if (!u) {
+      window.location.href = "/pages/auth.html?next=" + encodeURIComponent(window.location.pathname);
+      return;
+    }
+    if (!u.isAdmin) {
+      root.innerHTML = `
+        <div class="admin-denied">
+          <span style="font-size:2.4rem">🚫</span>
+          <h3>هذه الصفحة للمشرفين فقط</h3>
+          <p>حسابك الحالي ليس لديه صلاحية الإدارة.</p>
+          <a href="/index.html" class="btn btn-primary" style="max-width:220px;margin:14px auto 0;display:block">الرجوع للرئيسية</a>
+        </div>`;
+      return;
+    }
+    meId = u.id;
+    renderShell();
+    showTab("dashboard");
+  }
+
+  function renderShell() {
+    root.innerHTML = `
+      <div class="page-head">
+        <h2>⚙️ لوحة تحكم الإدارة</h2>
+        <p>مراقبة وإضافة وتعديل وحذف كل بيانات المنصة مباشرة — بدون أي تعديل على الكود</p>
+      </div>
+      <div class="admin-tabs" id="admin-tabs">
+        <button data-t="dashboard" class="active">📊 نظرة عامة</button>
+        ${Object.keys(ENTITIES).map((k) => `<button data-t="${k}">${ENTITIES[k].icon} ${ENTITIES[k].label}</button>`).join("")}
+      </div>
+      <div id="admin-body"></div>
+    `;
+    document.getElementById("admin-tabs").addEventListener("click", (e) => {
+      if (e.target.tagName !== "BUTTON") return;
+      [...document.querySelectorAll("#admin-tabs button")].forEach((b) => b.classList.remove("active"));
+      e.target.classList.add("active");
+      showTab(e.target.dataset.t);
+    });
+  }
+
+  async function showTab(tab) {
+    const body = document.getElementById("admin-body");
+    body.innerHTML = `<div class="empty-state">جارِ التحميل...</div>`;
+    if (tab === "dashboard") await renderDashboard(body);
+    else await renderEntity(tab, body);
+  }
+
+  async function renderDashboard(body) {
+    let stats;
+    try { stats = await DB.admin.stats(); } catch (err) { body.innerHTML = `<div class="alert alert-danger">${esc(err.message)}</div>`; return; }
+    body.innerHTML = `
+      <div class="admin-stats">
+        ${Object.keys(ENTITIES).map((k) => `
+          <div class="admin-stat">
+            <span class="n">${stats[k] ?? 0}</span>
+            <span class="l">${ENTITIES[k].icon} ${ENTITIES[k].label}</span>
+          </div>`).join("")}
+      </div>
+      <div class="alert alert-info">💡 اضغط على أي قسم من الأعلى لعرض بياناته والتحكم بها: تعديل، حذف، أو إضافة جديد مباشرة من هنا — دون المساس بالكود البرمجي.</div>
+    `;
+  }
+
+  async function renderEntity(key, body) {
+    const cfg = ENTITIES[key];
+    let rows;
+    try { rows = await DB.admin.list(key); } catch (err) { body.innerHTML = `<div class="alert alert-danger">${esc(err.message)}</div>`; return; }
+
+    body.innerHTML = `
+      ${cfg.canAdd ? `<button class="btn btn-amber" id="admin-add-btn">+ إضافة ${cfg.label}</button>` : ""}
+      <div class="admin-table-wrap" style="margin-top:10px">
+        <table class="admin-table">
+          <thead><tr>${cfg.listCols.map((c) => `<th>${fieldLabel(cfg, c)}</th>`).join("")}<th>إجراءات</th></tr></thead>
+          <tbody>
+            ${rows.length ? rows.map((r) => rowHtml(cfg, r)).join("") : `<tr><td colspan="${cfg.listCols.length + 1}" style="text-align:center;padding:24px;color:var(--ink-light)">لا توجد بيانات بعد</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    if (cfg.canAdd) document.getElementById("admin-add-btn").onclick = () => openForm(key, null);
+
+    body.querySelectorAll("[data-edit]").forEach((btn) => {
+      btn.onclick = () => openForm(key, rows.find((r) => String(r.id) === btn.dataset.edit));
+    });
+    body.querySelectorAll("[data-del]").forEach((btn) => {
+      btn.onclick = async () => {
+        if (!confirm("تأكيد الحذف؟ لا يمكن التراجع.")) return;
+        try { await DB.admin.remove(key, btn.dataset.del); toast("تم الحذف"); showTab(key); }
+        catch (err) { toast(err.message, "error"); }
+      };
+    });
+  }
+
+  function fieldLabel(cfg, key) {
+    const col = cfg.columns.find((c) => c.key === key);
+    return col ? col.label : key;
+  }
+
+  function cellValue(col, v) {
+    if (v === null || v === undefined || v === "") return "—";
+    if (col.type === "bool") return `<span class="dot ${v ? "on" : "off"}"></span> ${v ? "نعم" : "لا"}`;
+    if (col.type === "enum") return `<span class="badge">${esc(statusLabel(v))}</span>`;
+    if (col.type === "date") return esc(timeAgo(v));
+    if (col.type === "number") return esc(Number(v).toLocaleString("ar"));
+    return esc(String(v).slice(0, 40));
+  }
+
+  function rowHtml(cfg, row) {
+    return `<tr>
+      ${cfg.listCols.map((key) => {
+        const col = cfg.columns.find((c) => c.key === key);
+        return `<td>${cellValue(col, row[key])}</td>`;
+      }).join("")}
+      <td class="actions">
+        <button class="mini-btn" data-edit="${row.id}">✏️</button>
+        ${cfg.canDelete ? `<button class="mini-btn danger" data-del="${row.id}">🗑️</button>` : ""}
+      </td>
+    </tr>`;
+  }
+
+  function fieldHtml(c, row) {
+    const val = row ? row[c.key] : "";
+    if (c.type === "bool") {
+      return `<div class="field"><label><input type="checkbox" id="af-${c.key}" ${val ? "checked" : ""} style="width:auto;margin-left:6px">${c.label}</label></div>`;
+    }
+    if (c.type === "enum") {
+      return `<div class="field"><label>${c.label}</label><select id="af-${c.key}">${c.options.map((o) => `<option value="${o}" ${val === o ? "selected" : ""}>${statusLabel(o)}</option>`).join("")}</select></div>`;
+    }
+    if (c.type === "textarea") {
+      return `<div class="field"><label>${c.label}</label><textarea id="af-${c.key}">${esc(val || "")}</textarea></div>`;
+    }
+    return `<div class="field"><label>${c.label}</label><input type="${c.type === "number" ? "number" : "text"}" id="af-${c.key}" value="${esc(val ?? "")}" ${c.required ? "required" : ""}></div>`;
+  }
+
+  function openForm(key, row) {
+    const cfg = ENTITIES[key];
+    const isEdit = !!row;
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal-sheet">
+        <div class="modal-head"><h3>${isEdit ? "تعديل" : "إضافة"} — ${cfg.label}</h3><button class="close-x" id="admin-form-close">✕</button></div>
+        <form id="admin-form">
+          ${cfg.columns.filter((c) => !c.readonly).map((c) => fieldHtml(c, row)).join("")}
+          <button class="btn btn-primary" type="submit">${isEdit ? "حفظ التعديلات" : "إضافة"}</button>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector("#admin-form-close").onclick = () => overlay.remove();
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+
+    overlay.querySelector("#admin-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = {};
+      cfg.columns.filter((c) => !c.readonly).forEach((c) => {
+        const el = document.getElementById("af-" + c.key);
+        if (!el) return;
+        if (c.type === "bool") payload[c.key] = el.checked;
+        else if (c.type === "number") payload[c.key] = el.value === "" ? null : Number(el.value);
+        else payload[c.key] = el.value === "" ? null : el.value;
+      });
+      try {
+        if (isEdit) {
+          await DB.admin.update(key, row.id, payload);
+          toast("تم حفظ التعديلات");
+        } else {
+          if (key === "realEstate") payload.owner_id = meId;
+          await DB.admin.insert(key, payload);
+          toast("تمت الإضافة بنجاح");
+        }
+        overlay.remove();
+        showTab(key);
+      } catch (err) { toast(err.message, "error"); }
+    });
+  }
+
+  boot();
+  renderFooter();
+</script>
+</body>
+</html>

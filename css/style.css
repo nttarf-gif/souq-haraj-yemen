@@ -191,3 +191,27 @@ button,input,select,textarea{font-family:inherit;font-size:1rem}
   .bottom-nav{display:none}
   body{padding-bottom:0}
 }
+
+/* ---------- لوحة التحكم ---------- */
+.admin-denied{text-align:center;padding:60px 14px;color:var(--ink-light)}
+.admin-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+.admin-stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center;box-shadow:var(--shadow)}
+.admin-stat .n{font-size:1.5rem;font-weight:800;color:var(--teal-700);display:block}
+.admin-stat .l{font-size:.75rem;color:var(--ink-light)}
+.admin-tabs{display:flex;gap:6px;overflow-x:auto;padding:4px 0 14px;-webkit-overflow-scrolling:touch}
+.admin-tabs button{
+  flex:none;border:1px solid var(--border);background:#fff;border-radius:10px;
+  padding:8px 12px;font-size:.8rem;color:var(--ink-light);white-space:nowrap;
+}
+.admin-tabs button.active{background:var(--teal-900);color:#fff;border-color:var(--teal-900)}
+.admin-table-wrap{overflow-x:auto;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+table.admin-table{width:100%;border-collapse:collapse;font-size:.8rem;white-space:nowrap}
+table.admin-table th,table.admin-table td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--border)}
+table.admin-table th{color:var(--ink-light);font-weight:700;background:var(--bg)}
+table.admin-table tr:last-child td{border-bottom:none}
+table.admin-table td.actions{display:flex;gap:6px}
+.admin-table .mini-btn{border:1px solid var(--border);background:#fff;border-radius:8px;padding:5px 9px;font-size:.75rem;cursor:pointer}
+.admin-table .mini-btn.danger{color:var(--danger);border-color:#fecaca}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%}
+.dot.on{background:var(--ok)}
+.dot.off{background:#d1d5db}
