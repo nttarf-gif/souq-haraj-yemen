@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>نقل ركاب — سوق الحراج اليمني</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<main>
+  <div class="container">
+    <div class="page-head">
+      <h2>🚖 نقل الركاب</h2>
+      <p>اطلب رحلة أو انضم كسائق لنقل الركاب بين المدن والأحياء</p>
+    </div>
+
+    <div class="tabs" id="role-tabs">
+      <button data-r="passenger" class="active">أنا راكب</button>
+      <button data-r="driver">أنا سائق</button>
+    </div>
+
+    <!-- طلب رحلة -->
+    <form id="ride-form" class="card">
+      <div class="field">
+        <label>من (نقطة الانطلاق)</label>
+        <input type="text" id="r-pickup" placeholder="مثال: شارع الزبيري" required>
+      </div>
+      <div class="field">
+        <label>إلى (الوجهة)</label>
+        <input type="text" id="r-dropoff" placeholder="مثال: مطار صنعاء" required>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>المدينة</label>
+          <input type="text" id="r-city" placeholder="صنعاء" required>
+        </div>
+        <div class="field">
+          <label>السعر المتوقع (اختياري)</label>
+          <input type="number" id="r-price">
+        </div>
+      </div>
+      <div class="field">
+        <label>ملاحظات</label>
+        <textarea id="r-notes" placeholder="عدد الركاب، الوقت المفضل..."></textarea>
+      </div>
+      <button class="btn btn-primary" type="submit">اطلب رحلة الآن</button>
+    </form>
+
+    <!-- تسجيل كسائق -->
+    <form id="driver-form" class="card" style="display:none">
+      <div class="alert alert-info">سجّل كسائق لتقدر تشاهد طلبات الرحلات وتتواصل مع الركاب.</div>
+      <div class="field-row">
+        <div class="field">
+          <label>نوع المركبة</label>
+          <select id="d-type"><option>سيارة</option><option>باص صغير</option><option>دباب</option></select>
+        </div>
+        <div class="field">
+          <label>رقم اللوحة</label>
+          <input type="text" id="d-plate">
+        </div>
+      </div>
+      <div class="field">
+        <label>المدينة التي تعمل فيها</label>
+        <input type="text" id="d-city" placeholder="صنعاء" required>
+      </div>
+      <button class="btn btn-amber" type="submit">سجّل كسائق</button>
+    </form>
+
+    <div class="page-head" style="padding-top:6px"><h2 style="font-size:1rem">طلبات الرحلات الحالية</h2></div>
+    <div id="rides-list"></div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/data.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  initChrome("vehicles");
+
+  const rideForm = document.getElementById("ride-form");
+  const driverForm = document.getElementById("driver-form");
+
+  document.getElementById("role-tabs").addEventListener("click", (e) => {
+    if (e.target.tagName !== "BUTTON") return;
+    [...document.querySelectorAll("#role-tabs button")].forEach(b => b.classList.remove("active"));
+    e.target.classList.add("active");
+    const role = e.target.dataset.r;
+    rideForm.style.display = role === "passenger" ? "" : "none";
+    driverForm.style.display = role === "driver" ? "" : "none";
+  });
+
+  rideForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    DB.requireAuth().then((u) => {
+      DB.rides.add({
+        passengerId: u.id,
+        passengerName: u.fullName,
+        passengerPhone: u.phone,
+        pickupAddress: document.getElementById("r-pickup").value.trim(),
+        dropoffAddress: document.getElementById("r-dropoff").value.trim(),
+        city: document.getElementById("r-city").value.trim(),
+        priceEstimate: document.getElementById("r-price").value,
+        notes: document.getElementById("r-notes").value.trim(),
+      }).then(() => {
+        toast("تم نشر طلب الرحلة");
+        rideForm.reset();
+        loadRides();
+      });
+    }).catch(() => {});
+  });
+
+  driverForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    DB.requireAuth().then((u) => {
+      DB.rides.add({
+        isDriverSignup: true,
+        driverId: u.id,
+        driverName: u.fullName,
+        driverPhone: u.phone,
+        vehicleType: document.getElementById("d-type").value,
+        plateNumber: document.getElementById("d-plate").value.trim(),
+        city: document.getElementById("d-city").value.trim(),
+      }).then(() => {
+        toast("تم تسجيلك كسائق، راح تظهر لك طلبات الركاب في مدينتك");
+        driverForm.reset();
+        loadRides();
+      });
+    }).catch(() => {});
+  });
+
+  function loadRides() {
+    DB.currentUser().then((me) => {
+      DB.rides.list((r) => !r.isDriverSignup).then((items) => {
+        const box = document.getElementById("rides-list");
+        if (!items.length) {
+          box.innerHTML = `<div class="empty-state"><span class="ic">🚖</span>ما فيه طلبات رحلات حتى الآن.</div>`;
+          return;
+        }
+        box.innerHTML = items.map(i => `
+          <div class="card listing-card">
+            <div class="top-row">
+              <h4>${esc(i.pickupAddress)} ← ${esc(i.dropoffAddress)}</h4>
+              <span class="badge status-open">${i.status === "requested" ? "مطلوبة" : i.status}</span>
+            </div>
+            <div class="meta-row">
+              <span>📍 ${esc(i.city)}</span>
+              ${i.priceEstimate ? `<span class="price-tag">${fmtPrice(i.priceEstimate, "ر.ي")}</span>` : ""}
+            </div>
+            ${i.notes ? `<p style="margin:4px 0 0;font-size:.85rem;color:var(--ink-light)">${esc(i.notes)}</p>` : ""}
+            <div class="meta-row" style="justify-content:space-between">
+              <span style="font-size:.72rem">${esc(i.passengerName)} · ${timeAgo(i.createdAt)}</span>
+              ${me && me.id === i.passengerId ? "" : `<button class="btn btn-sm btn-primary" onclick="toast('رقم الراكب: ${esc(i.passengerPhone)}')">تواصل</button>`}
+            </div>
+          </div>
+        `).join("");
+      });
+    });
+  }
+
+  loadRides();
+  renderFooter();
+</script>
+</body>
+</html>

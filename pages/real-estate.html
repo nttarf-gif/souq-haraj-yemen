@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>عقارات — سوق الحراج اليمني</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<main>
+  <div class="container">
+    <div class="page-head">
+      <h2>🏠 قسم العقارات</h2>
+      <p>بيع وإيجار شقق، فلل، أراضي، محلات ومكاتب</p>
+    </div>
+
+    <button class="btn btn-amber" id="toggle-form">+ أضف إعلان عقاري</button>
+
+    <form id="add-form" class="card" style="display:none;margin-top:12px">
+      <div class="field">
+        <label>عنوان الإعلان</label>
+        <input type="text" id="f-title" placeholder="مثال: شقة 3 غرف للإيجار - حدة" required>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>نوع العقار</label>
+          <select id="f-type">
+            <option>شقة</option><option>فيلا</option><option>أرض</option><option>محل تجاري</option><option>مكتب</option><option>استراحة</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>نوع العملية</label>
+          <select id="f-deal">
+            <option value="sale">بيع</option>
+            <option value="rent">إيجار</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>السعر</label>
+          <input type="number" id="f-price" required>
+        </div>
+        <div class="field">
+          <label>العملة</label>
+          <select id="f-currency"><option>YER</option><option>SAR</option><option>USD</option></select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>المدينة</label>
+          <input type="text" id="f-city" placeholder="صنعاء" required>
+        </div>
+        <div class="field">
+          <label>الحي</label>
+          <input type="text" id="f-district">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>المساحة (م²)</label>
+          <input type="number" id="f-area">
+        </div>
+        <div class="field">
+          <label>عدد الغرف</label>
+          <input type="number" id="f-rooms">
+        </div>
+      </div>
+      <div class="field">
+        <label>تفاصيل إضافية</label>
+        <textarea id="f-desc" placeholder="وصف العقار، الطابق، المرافق..."></textarea>
+      </div>
+      <button class="btn btn-primary" type="submit">نشر الإعلان</button>
+    </form>
+
+    <div class="tabs" id="tabs">
+      <button data-f="all" class="active">الكل</button>
+      <button data-f="sale">للبيع</button>
+      <button data-f="rent">للإيجار</button>
+    </div>
+
+    <div id="listings"></div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/data.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  initChrome("real-estate");
+
+  const toggleBtn = document.getElementById("toggle-form");
+  const form = document.getElementById("add-form");
+  toggleBtn.onclick = () => {
+    DB.currentUser().then((u) => {
+      if (!u) { window.location.href = "/pages/auth.html?next=" + encodeURIComponent(window.location.pathname); return; }
+      form.style.display = form.style.display === "none" ? "" : "none";
+    });
+  };
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    DB.currentUser().then((u) => {
+      DB.realEstate.add({
+        ownerId: u.id,
+        ownerName: u.fullName,
+        ownerPhone: u.phone,
+        title: document.getElementById("f-title").value.trim(),
+        propertyType: document.getElementById("f-type").value,
+        dealType: document.getElementById("f-deal").value,
+        price: document.getElementById("f-price").value,
+        currency: document.getElementById("f-currency").value,
+        city: document.getElementById("f-city").value.trim(),
+        district: document.getElementById("f-district").value.trim(),
+        areaSqm: document.getElementById("f-area").value,
+        rooms: document.getElementById("f-rooms").value,
+        description: document.getElementById("f-desc").value.trim(),
+      }).then(() => {
+        toast("تم نشر إعلانك");
+        form.reset(); form.style.display = "none";
+        loadList();
+      });
+    });
+  });
+
+  let activeFilter = "all";
+  const params = new URLSearchParams(window.location.search);
+  const onlyMine = params.get("mine") === "1";
+
+  document.getElementById("tabs").addEventListener("click", (e) => {
+    if (e.target.tagName !== "BUTTON") return;
+    [...document.querySelectorAll("#tabs button")].forEach(b => b.classList.remove("active"));
+    e.target.classList.add("active");
+    activeFilter = e.target.dataset.f;
+    loadList();
+  });
+
+  function loadList() {
+    DB.currentUser().then((me) => {
+      DB.realEstate.list().then((items) => {
+        let filtered = items.filter(i => activeFilter === "all" || i.dealType === activeFilter);
+        if (onlyMine && me) filtered = filtered.filter(i => i.ownerId === me.id);
+        renderList(filtered, me);
+      });
+    });
+  }
+
+  function renderList(items, me) {
+    const box = document.getElementById("listings");
+    if (!items.length) {
+      box.innerHTML = `<div class="empty-state"><span class="ic">🏠</span>ما فيه إعلانات عقارية حتى الآن. كن أول من ينشر!</div>`;
+      return;
+    }
+    box.innerHTML = items.map(i => `
+      <div class="card listing-card">
+        <div class="top-row">
+          <h4>${esc(i.title)}</h4>
+          <span class="price-tag">${fmtPrice(i.price, i.currency)}</span>
+        </div>
+        <div class="meta-row">
+          <span class="badge">${i.dealType === "sale" ? "للبيع" : "للإيجار"}</span>
+          <span>${esc(i.propertyType)}</span>
+          <span>📍 ${esc(i.city)}${i.district ? " - " + esc(i.district) : ""}</span>
+          ${i.areaSqm ? `<span>${esc(i.areaSqm)} م²</span>` : ""}
+          ${i.rooms ? `<span>${esc(i.rooms)} غرف</span>` : ""}
+        </div>
+        ${i.description ? `<p style="margin:4px 0 0;font-size:.85rem;color:var(--ink-light)">${esc(i.description)}</p>` : ""}
+        <div class="meta-row" style="justify-content:space-between;margin-top:6px">
+          <span style="font-size:.72rem">نشره ${esc(i.ownerName)} · ${timeAgo(i.createdAt)}</span>
+          ${me && me.id === i.ownerId ? "" : `<button class="btn btn-sm btn-primary" onclick="contactOwner('${i.id}','${esc(i.ownerName)}','${esc(i.ownerPhone)}')">تواصل مع المعلن</button>`}
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function contactOwner(id, name, phone) {
+    DB.currentUser().then((u) => {
+      if (!u) { window.location.href = "/pages/auth.html"; return; }
+      toast("رقم تواصل " + name + ": " + phone);
+    });
+  }
+  window.contactOwner = contactOwner;
+
+  loadList();
+  renderFooter();
+</script>
+</body>
+</html>

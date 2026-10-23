@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>تسجيل الدخول — سوق الحراج اليمني</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<main>
+  <div class="container">
+    <div class="page-head">
+      <h2 id="page-title">تسجيل الدخول</h2>
+      <p>سجّل دخولك أو أنشئ حساب جديد للمتابعة</p>
+    </div>
+
+    <div class="tabs">
+      <button id="tab-login" class="active">تسجيل الدخول</button>
+      <button id="tab-signup">حساب جديد</button>
+    </div>
+
+    <!-- تسجيل الدخول -->
+    <form id="login-form" class="card">
+      <div class="field">
+        <label>رقم الجوال</label>
+        <input type="tel" id="login-phone" placeholder="7xxxxxxxx" required>
+      </div>
+      <div class="field">
+        <label>كلمة المرور</label>
+        <input type="password" id="login-password" required>
+      </div>
+      <button class="btn btn-primary" type="submit">دخول</button>
+    </form>
+
+    <!-- حساب جديد -->
+    <form id="signup-form" class="card" style="display:none">
+      <div class="field">
+        <label>الاسم الكامل</label>
+        <input type="text" id="su-name" required>
+      </div>
+      <div class="field">
+        <label>رقم الجوال</label>
+        <input type="tel" id="su-phone" placeholder="7xxxxxxxx" required>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>الدولة</label>
+          <select id="su-country">
+            <option value="YE">اليمن</option>
+            <option value="SA">السعودية</option>
+            <option value="other">أخرى</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>المدينة</label>
+          <input type="text" id="su-city" placeholder="صنعاء، عدن...">
+        </div>
+      </div>
+      <div class="field">
+        <label>كلمة المرور</label>
+        <input type="password" id="su-password" required minlength="4">
+      </div>
+      <button class="btn btn-amber" type="submit">إنشاء الحساب</button>
+    </form>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/data.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  initChrome("");
+
+  const tabLogin = document.getElementById("tab-login");
+  const tabSignup = document.getElementById("tab-signup");
+  const loginForm = document.getElementById("login-form");
+  const signupForm = document.getElementById("signup-form");
+  const title = document.getElementById("page-title");
+
+  tabLogin.onclick = () => {
+    tabLogin.classList.add("active"); tabSignup.classList.remove("active");
+    loginForm.style.display = ""; signupForm.style.display = "none";
+    title.textContent = "تسجيل الدخول";
+  };
+  tabSignup.onclick = () => {
+    tabSignup.classList.add("active"); tabLogin.classList.remove("active");
+    signupForm.style.display = ""; loginForm.style.display = "none";
+    title.textContent = "حساب جديد";
+  };
+
+  function nextUrl() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("next") || "/index.html";
+  }
+
+  loginForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    DB.login({
+      phone: document.getElementById("login-phone").value.trim(),
+      password: document.getElementById("login-password").value,
+    }).then((u) => {
+      toast("أهلًا بك، " + u.fullName);
+      setTimeout(() => (window.location.href = nextUrl()), 500);
+    }).catch((err) => toast(err.message, "error"));
+  });
+
+  signupForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    DB.signup({
+      fullName: document.getElementById("su-name").value.trim(),
+      phone: document.getElementById("su-phone").value.trim(),
+      country: document.getElementById("su-country").value,
+      city: document.getElementById("su-city").value.trim(),
+      password: document.getElementById("su-password").value,
+    }).then((u) => {
+      toast("تم إنشاء الحساب بنجاح!");
+      setTimeout(() => (window.location.href = nextUrl()), 500);
+    }).catch((err) => toast(err.message, "error"));
+  });
+
+  renderFooter();
+</script>
+</body>
+</html>

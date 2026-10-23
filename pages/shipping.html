@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>شحن — سوق الحراج اليمني</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<main>
+  <div class="container">
+    <div class="page-head">
+      <h2>📦 قسم الشحن</h2>
+      <p>اربط بين من يريد شحن أغراضه ومن يقدر ينقلها بين المدن والدول</p>
+    </div>
+
+    <button class="btn btn-amber" id="toggle-form">+ أضف طلب شحن</button>
+
+    <form id="add-form" class="card" style="display:none;margin-top:12px">
+      <div class="field-row">
+        <div class="field">
+          <label>دولة الانطلاق</label>
+          <select id="f-from-country"><option value="YE">اليمن</option><option value="SA">السعودية</option><option value="other">أخرى</option></select>
+        </div>
+        <div class="field">
+          <label>مدينة الانطلاق</label>
+          <input type="text" id="f-from-city" placeholder="صنعاء" required>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>دولة الوصول</label>
+          <select id="f-to-country"><option value="YE">اليمن</option><option value="SA">السعودية</option><option value="other">أخرى</option></select>
+        </div>
+        <div class="field">
+          <label>مدينة الوصول</label>
+          <input type="text" id="f-to-city" placeholder="عدن" required>
+        </div>
+      </div>
+      <div class="field">
+        <label>وصف الشحنة</label>
+        <textarea id="f-desc" placeholder="نوع الأغراض، حجمها..." required></textarea>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>الوزن التقريبي (كجم)</label>
+          <input type="number" id="f-weight">
+        </div>
+        <div class="field">
+          <label>السعر المعروض</label>
+          <input type="number" id="f-price">
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit">نشر طلب الشحن</button>
+    </form>
+
+    <div id="shipments-list"></div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/data.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  initChrome("shipping");
+
+  const toggleBtn = document.getElementById("toggle-form");
+  const form = document.getElementById("add-form");
+  toggleBtn.onclick = () => {
+    DB.currentUser().then((u) => {
+      if (!u) { window.location.href = "/pages/auth.html?next=" + encodeURIComponent(window.location.pathname); return; }
+      form.style.display = form.style.display === "none" ? "" : "none";
+    });
+  };
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    DB.currentUser().then((u) => {
+      DB.shipments.add({
+        senderId: u.id,
+        senderName: u.fullName,
+        senderPhone: u.phone,
+        fromCountry: document.getElementById("f-from-country").value,
+        fromCity: document.getElementById("f-from-city").value.trim(),
+        toCountry: document.getElementById("f-to-country").value,
+        toCity: document.getElementById("f-to-city").value.trim(),
+        itemDescription: document.getElementById("f-desc").value.trim(),
+        weightKg: document.getElementById("f-weight").value,
+        priceOffer: document.getElementById("f-price").value,
+      }).then(() => {
+        toast("تم نشر طلب الشحن");
+        form.reset(); form.style.display = "none";
+        loadList();
+      });
+    });
+  });
+
+  function countryName(c) {
+    return c === "YE" ? "اليمن" : c === "SA" ? "السعودية" : c;
+  }
+
+  function loadList() {
+    DB.currentUser().then((me) => {
+      DB.shipments.list().then((items) => {
+        const box = document.getElementById("shipments-list");
+        if (!items.length) {
+          box.innerHTML = `<div class="empty-state"><span class="ic">📦</span>ما فيه طلبات شحن حتى الآن.</div>`;
+          return;
+        }
+        box.innerHTML = items.map(i => `
+          <div class="card listing-card">
+            <div class="top-row">
+              <h4>${esc(i.fromCity)} (${countryName(i.fromCountry)}) → ${esc(i.toCity)} (${countryName(i.toCountry)})</h4>
+              ${i.priceOffer ? `<span class="price-tag">${fmtPrice(i.priceOffer, "ر.ي")}</span>` : ""}
+            </div>
+            <p style="margin:4px 0 0;font-size:.85rem;color:var(--ink-light)">${esc(i.itemDescription)}</p>
+            <div class="meta-row">
+              ${i.weightKg ? `<span>⚖️ ${esc(i.weightKg)} كجم</span>` : ""}
+              <span class="badge status-open">${i.status === "posted" ? "متاحة" : i.status}</span>
+            </div>
+            <div class="meta-row" style="justify-content:space-between">
+              <span style="font-size:.72rem">${esc(i.senderName)} · ${timeAgo(i.createdAt)}</span>
+              ${me && me.id === i.senderId ? "" : `<button class="btn btn-sm btn-primary" onclick="toast('رقم المرسل: ${esc(i.senderPhone)}')">تواصل</button>`}
+            </div>
+          </div>
+        `).join("");
+      });
+    });
+  }
+
+  loadList();
+  renderFooter();
+</script>
+</body>
+</html>

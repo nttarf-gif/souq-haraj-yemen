@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>العضوية المميزة — سوق الحراج اليمني</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<main>
+  <div class="container">
+    <div class="page-head">
+      <h2>العضوية المميزة</h2>
+      <p>اشتراك شهري يعطيك أولوية ظهور وشارة موثوق على إعلاناتك</p>
+    </div>
+
+    <div class="card">
+      <div class="meta-row" style="justify-content:space-between;align-items:center">
+        <h3 style="margin:0">اشتراك شهري</h3>
+        <span class="price-tag">5,000 ر.ي / شهر</span>
+      </div>
+      <p style="font-size:.85rem;color:var(--ink-light);margin:8px 0 0">
+        يشمل: شارة "عضو مميز" ⭐، ظهور إعلاناتك بالأعلى في كل الأقسام، عدد إعلانات غير محدود.
+      </p>
+    </div>
+
+    <div class="card alert-info">
+      <strong>طريقة الدفع: محفظة رقمية (تأكيد يدوي)</strong>
+      <p style="font-size:.82rem;margin:6px 0 0">
+        حوّل المبلغ إلى الرقم أدناه عبر محفظتك، ثم أدخل رقم عملية التحويل لتفعيل اشتراكك خلال وقت قصير.
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="field">
+        <label>اختر المحفظة</label>
+        <select id="wallet-name">
+          <option>جوالي (Jawali)</option>
+          <option>جيب (Jaib)</option>
+          <option>فلوسك</option>
+          <option>كاش</option>
+          <option>STC Pay</option>
+          <option>تحويل بنكي</option>
+          <option>أخرى</option>
+        </select>
+      </div>
+      <div class="alert alert-info" id="wallet-target">
+        رقم الاستلام (جوالي/جيب): <strong>777 123 456</strong> — باسم: سوق الحراج اليمني
+      </div>
+      <div class="field">
+        <label>رقم جوالك الذي حوّلت منه</label>
+        <input type="tel" id="sender-wallet" placeholder="7xxxxxxxx" required>
+      </div>
+      <div class="field">
+        <label>رقم عملية التحويل / الإيصال</label>
+        <input type="text" id="tx-ref" placeholder="مثال: TXN20261023..." required>
+      </div>
+      <button class="btn btn-amber" id="submit-payment">تأكيد إني حوّلت</button>
+      <small style="display:block;margin-top:8px;text-align:center">بعد التأكيد، سيتم تفعيل الاشتراك بعد مراجعة العملية.</small>
+    </div>
+
+    <div id="my-payments"></div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/data.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  initChrome("");
+  let currentUser = null;
+
+  DB.requireAuth().then((u) => {
+    currentUser = u;
+    loadPayments();
+  }).catch(() => {});
+
+  document.getElementById("submit-payment").addEventListener("click", () => {
+    if (!currentUser) return;
+    const senderWallet = document.getElementById("sender-wallet").value.trim();
+    const txRef = document.getElementById("tx-ref").value.trim();
+    if (!senderWallet || !txRef) {
+      toast("عبّي رقم جوالك ورقم العملية", "error");
+      return;
+    }
+    DB.payments.add({
+      userId: currentUser.id,
+      purpose: "premium_subscription",
+      walletName: document.getElementById("wallet-name").value,
+      amount: 5000,
+      currency: "YER",
+      senderWallet,
+      transactionReference: txRef,
+    }).then(() => {
+      toast("تم استلام طلبك، جاري المراجعة");
+      document.getElementById("sender-wallet").value = "";
+      document.getElementById("tx-ref").value = "";
+      loadPayments();
+    });
+  });
+
+  function loadPayments() {
+    DB.payments.list((p) => p.userId === currentUser.id).then((list) => {
+      const box = document.getElementById("my-payments");
+      if (!list.length) { box.innerHTML = ""; return; }
+      box.innerHTML = `<h3 style="font-size:.95rem">طلبات الدفع السابقة</h3>` + list.map((p) => `
+        <div class="card listing-card">
+          <div class="top-row">
+            <h4>${esc(p.walletName)} — ${fmtPrice(p.amount, p.currency)}</h4>
+            <span class="badge ${p.status === "confirmed" ? "status-open" : p.status === "rejected" ? "" : ""}">
+              ${p.status === "pending_review" ? "قيد المراجعة" : p.status === "confirmed" ? "مؤكّد ✅" : "مرفوض"}
+            </span>
+          </div>
+          <div class="meta-row"><span>رقم العملية: ${esc(p.transactionReference)}</span><span>${timeAgo(p.createdAt)}</span></div>
+        </div>
+      `).join("");
+    });
+  }
+
+  renderFooter();
+</script>
+</body>
+</html>

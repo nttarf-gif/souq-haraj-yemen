@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>سوق الحراج اليمني — عقارات، نقل ركاب، شحن، تحويل ودايع</title>
+<meta name="description" content="منصة يمنية واحدة: إعلانات عقارات، نقل ركاب شبيه بأوبر، شحن بين المدن، وربط تحويل ودايع بين اليمن والسعودية.">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<main>
+  <section class="hero">
+    <div class="container">
+      <h1>كل اللي تحتاجه... في سوق واحد</h1>
+      <p>عقارات، نقل ركاب، شحن، وتحويل ودايع بين اليمن والسعودية — بمكان واحد</p>
+      <form class="search-box" id="home-search" onsubmit="return false;">
+        <input type="text" placeholder="دور في عقار، رحلة، شحنة...">
+        <button type="submit">بحث</button>
+      </form>
+    </div>
+  </section>
+
+  <div class="container">
+    <div class="sections-grid" id="sections-grid"></div>
+
+    <div class="card">
+      <h3 style="margin:0 0 6px">ليش سوق الحراج اليمني؟</h3>
+      <div class="meta-row" style="flex-direction:column;align-items:flex-start;gap:8px;font-size:.85rem">
+        <div>✅ إعلانات مباشرة بين الأفراد بدون وسيط مكلف</div>
+        <div>✅ يعمل بسلاسة حتى مع إنترنت 3G ضعيف</div>
+        <div>✅ دعم الدفع عبر المحافظ الرقمية (جوالي، جيب، وغيرها)</div>
+        <div>✅ تواصل مباشر بين الطرفين داخل المنصة</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/data.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  initChrome("home");
+
+  const grid = document.getElementById("sections-grid");
+  grid.innerHTML = SECTIONS.map(s => `
+    <a class="section-card" href="${s.href}">
+      <span class="ic">${s.icon}</span>
+      <h3>${s.title}</h3>
+      <p>${s.desc}</p>
+    </a>
+  `).join("");
+
+  document.getElementById("home-search").addEventListener("submit", (e) => {
+    const q = e.target.querySelector("input").value.trim();
+    if (q) window.location.href = "/pages/real-estate.html?q=" + encodeURIComponent(q);
+  });
+
+  renderFooter();
+</script>
+</body>
+</html>

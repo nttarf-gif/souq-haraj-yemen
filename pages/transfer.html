@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>تحويل ودايع — سوق الحراج اليمني</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<main>
+  <div class="container">
+    <div class="page-head">
+      <h2>💸 ربط تحويل الودايع والهدايا</h2>
+      <p>تواصل مباشر بين من يريد يرسل ومن يريد يستلم — اليمن وأي دولة بالعالم</p>
+    </div>
+
+    <div class="alert alert-info">
+      ⚠️ هذا القسم للربط بين الطرفين فقط، المنصة لا تقوم بأي تحويل مالي فعلي ولا تتوسط في الأموال. التحويل والاتفاق يتم مباشرة بين الطرفين على مسؤوليتهم.
+    </div>
+
+    <button class="btn btn-amber" id="toggle-form">+ أضف طلب تحويل</button>
+
+    <form id="add-form" class="card" style="display:none;margin-top:12px">
+      <div class="field">
+        <label>الاتجاه</label>
+        <select id="f-direction">
+          <option value="ye_to_other">من اليمن إلى دولة أخرى</option>
+          <option value="other_to_ye">من دولة أخرى إلى اليمن</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>الدولة الأخرى (غير اليمن)</label>
+        <input type="text" id="f-other-country" placeholder="مثال: السعودية، الإمارات، مصر، تركيا..." required>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>المبلغ</label>
+          <input type="number" id="f-amount" required>
+        </div>
+        <div class="field">
+          <label>العملة</label>
+          <select id="f-currency"><option>YER</option><option>SAR</option><option>USD</option><option>AED</option><option>EGP</option><option>EUR</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>طريقة الاستلام المفضلة</label>
+        <select id="f-wallet">
+          <option>جوالي (Jawali)</option>
+          <option>جيب (Jaib)</option>
+          <option>فلوسك</option>
+          <option>STC Pay</option>
+          <option>Western Union</option>
+          <option>تحويل بنكي</option>
+          <option>نقدًا</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>المدينة</label>
+        <input type="text" id="f-city" placeholder="صنعاء / جدة / دبي...">
+      </div>
+      <div class="field">
+        <label>ملاحظات</label>
+        <textarea id="f-notes"></textarea>
+      </div>
+      <button class="btn btn-primary" type="submit">نشر طلب الربط</button>
+    </form>
+
+    <div class="tabs" id="tabs">
+      <button data-f="all" class="active">الكل</button>
+      <button data-f="ye_to_other">من اليمن</button>
+      <button data-f="other_to_ye">إلى اليمن</button>
+    </div>
+
+    <div id="transfers-list"></div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/data.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  initChrome("transfer");
+
+  const toggleBtn = document.getElementById("toggle-form");
+  const form = document.getElementById("add-form");
+  toggleBtn.onclick = () => {
+    DB.currentUser().then((u) => {
+      if (!u) { window.location.href = "/pages/auth.html?next=" + encodeURIComponent(window.location.pathname); return; }
+      form.style.display = form.style.display === "none" ? "" : "none";
+    });
+  };
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      const u = await DB.requireAuth();
+      await DB.transfers.add({
+        direction: document.getElementById("f-direction").value,
+        otherCountry: document.getElementById("f-other-country").value.trim(),
+        amount: document.getElementById("f-amount").value,
+        currency: document.getElementById("f-currency").value,
+        preferredWallet: document.getElementById("f-wallet").value,
+        city: document.getElementById("f-city").value.trim(),
+        notes: document.getElementById("f-notes").value.trim(),
+      });
+      toast("تم نشر طلب الربط");
+      form.reset(); form.style.display = "none";
+      loadList();
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  });
+
+  let activeFilter = "all";
+  document.getElementById("tabs").addEventListener("click", (e) => {
+    if (e.target.tagName !== "BUTTON") return;
+    [...document.querySelectorAll("#tabs button")].forEach(b => b.classList.remove("active"));
+    e.target.classList.add("active");
+    activeFilter = e.target.dataset.f;
+    loadList();
+  });
+
+  function dirLabel(i) {
+    return i.direction === "ye_to_other"
+      ? `اليمن ← ${esc(i.otherCountry || "دولة أخرى")}`
+      : `${esc(i.otherCountry || "دولة أخرى")} ← اليمن`;
+  }
+
+  async function loadList() {
+    const me = await DB.currentUser();
+    const items = await DB.transfers.list();
+    const filtered = items.filter(i => activeFilter === "all" || i.direction === activeFilter);
+    const box = document.getElementById("transfers-list");
+    if (!filtered.length) {
+      box.innerHTML = `<div class="empty-state"><span class="ic">💸</span>ما فيه طلبات تحويل حتى الآن.</div>`;
+      return;
+    }
+    box.innerHTML = filtered.map(i => `
+      <div class="card listing-card">
+        <div class="top-row">
+          <h4>${dirLabel(i)}</h4>
+          <span class="price-tag">${fmtPrice(i.amount, i.currency)}</span>
+        </div>
+        <div class="meta-row">
+          <span class="badge">${esc(i.preferredWallet)}</span>
+          ${i.city ? `<span>📍 ${esc(i.city)}</span>` : ""}
+        </div>
+        ${i.notes ? `<p style="margin:4px 0 0;font-size:.85rem;color:var(--ink-light)">${esc(i.notes)}</p>` : ""}
+        <div class="meta-row" style="justify-content:space-between">
+          <span style="font-size:.72rem">${timeAgo(i.createdAt)}</span>
+          ${me && me.id === i.requesterId ? "" : `<button class="btn btn-sm btn-primary" onclick="toast('رقم التواصل: ${esc(i.requesterPhone)}')">تواصل</button>`}
+        </div>
+      </div>
+    `).join("");
+  }
+
+  loadList();
+  renderFooter();
+</script>
+</body>
+</html>
