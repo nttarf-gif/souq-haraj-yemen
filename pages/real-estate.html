@@ -84,6 +84,37 @@
       <button data-f="rent">للإيجار</button>
     </div>
 
+    <button class="btn btn-outline" id="toggle-filters" style="margin-bottom:8px">🔍 فلاتر البحث</button>
+    <div id="filters-box" class="card" style="display:none;margin-bottom:10px">
+      <div class="field-row">
+        <div class="field">
+          <label>المدينة</label>
+          <input type="text" id="flt-city" placeholder="صنعاء">
+        </div>
+        <div class="field">
+          <label>نوع العقار</label>
+          <select id="flt-type">
+            <option value="">الكل</option>
+            <option>شقة</option><option>فيلا</option><option>أرض</option><option>محل تجاري</option><option>مكتب</option><option>استراحة</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>أقل سعر</label>
+          <input type="number" id="flt-min">
+        </div>
+        <div class="field">
+          <label>أعلى سعر</label>
+          <input type="number" id="flt-max">
+        </div>
+      </div>
+      <div class="flex-row" style="gap:8px">
+        <button class="btn btn-primary" id="apply-filters" style="flex:1">تطبيق الفلتر</button>
+        <button class="btn btn-outline" id="clear-filters" style="flex:1">مسح</button>
+      </div>
+    </div>
+
     <div id="listings"></div>
   </div>
 </main>
@@ -150,6 +181,30 @@
     loadList();
   });
 
+  let searchFilters = { city: "", type: "", min: "", max: "" };
+
+  document.getElementById("toggle-filters").onclick = () => {
+    const box = document.getElementById("filters-box");
+    box.style.display = box.style.display === "none" ? "" : "none";
+  };
+  document.getElementById("apply-filters").onclick = () => {
+    searchFilters = {
+      city: document.getElementById("flt-city").value.trim(),
+      type: document.getElementById("flt-type").value,
+      min: document.getElementById("flt-min").value,
+      max: document.getElementById("flt-max").value,
+    };
+    loadList();
+  };
+  document.getElementById("clear-filters").onclick = () => {
+    document.getElementById("flt-city").value = "";
+    document.getElementById("flt-type").value = "";
+    document.getElementById("flt-min").value = "";
+    document.getElementById("flt-max").value = "";
+    searchFilters = { city: "", type: "", min: "", max: "" };
+    loadList();
+  };
+
   let favSet = new Set();
 
   function loadList() {
@@ -158,6 +213,10 @@
       DB.realEstate.list().then((items) => {
         let filtered = items.filter(i => activeFilter === "all" || i.dealType === activeFilter);
         if (onlyMine && me) filtered = filtered.filter(i => i.ownerId === me.id);
+        if (searchFilters.city) filtered = filtered.filter(i => i.city.includes(searchFilters.city));
+        if (searchFilters.type) filtered = filtered.filter(i => i.propertyType === searchFilters.type);
+        if (searchFilters.min) filtered = filtered.filter(i => Number(i.price) >= Number(searchFilters.min));
+        if (searchFilters.max) filtered = filtered.filter(i => Number(i.price) <= Number(searchFilters.max));
         renderList(filtered, me);
       });
     });
