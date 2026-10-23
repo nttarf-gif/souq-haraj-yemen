@@ -121,7 +121,7 @@
             </div>
             <div class="meta-row" style="justify-content:space-between">
               <span style="font-size:.72rem">${esc(i.senderName)} · ${timeAgo(i.createdAt)}</span>
-              ${me && me.id === i.senderId ? "" : `<button class="btn btn-sm btn-primary" onclick="toast('رقم المرسل: ${esc(i.senderPhone)}')">تواصل</button>`}
+              ${me && me.id === i.senderId ? "" : `<button class="btn btn-sm btn-primary" onclick="goChat('${i.senderId}','shipment','${i.id}','${esc(i.senderName)}')">تواصل</button>`}
             </div>
           </div>
         `).join("");

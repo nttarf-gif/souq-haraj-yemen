@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>محادثة — سوق الحراج اليمني</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .chat-wrap{display:flex;flex-direction:column;height:calc(100dvh - 58px);}
+  .chat-msgs{flex:1;overflow-y:auto;padding:12px 0;display:flex;flex-direction:column;gap:8px}
+  .msg-bubble{max-width:78%;padding:9px 12px;border-radius:14px;font-size:.88rem;line-height:1.5;word-break:break-word}
+  .msg-mine{align-self:flex-start;background:var(--teal-700);color:#fff;border-bottom-left-radius:4px}
+  .msg-other{align-self:flex-end;background:#fff;border:1px solid var(--border);border-bottom-right-radius:4px}
+  .msg-time{font-size:.65rem;opacity:.7;margin-top:3px;display:block}
+  .chat-input-row{display:flex;gap:8px;padding:10px 0;border-top:1px solid var(--border);background:var(--bg)}
+  .chat-input-row input{flex:1;padding:11px 12px;border:1px solid var(--border);border-radius:999px;background:#fff}
+  .chat-input-row button{border:none;background:var(--teal-700);color:#fff;border-radius:50%;width:42px;height:42px;flex:none}
+</style>
+</head>
+<body>
+<main>
+  <div class="container">
+    <div class="page-head" style="padding-bottom:6px">
+      <h2 id="chat-title">💬 محادثة</h2>
+      <p id="chat-sub" style="font-size:.78rem"></p>
+    </div>
+    <div class="chat-wrap">
+      <div class="chat-msgs" id="chat-msgs"></div>
+      <form class="chat-input-row" id="chat-form">
+        <input type="text" id="chat-input" placeholder="اكتب رسالتك..." autocomplete="off" required>
+        <button type="submit">➤</button>
+      </form>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/data.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const withId = params.get("with");
+  const ctxType = params.get("context_type") || "";
+  const ctxId = params.get("context_id") || "";
+  const otherName = params.get("name") || "المستخدم";
+
+  if (!withId) {
+    document.getElementById("chat-msgs").innerHTML = `<div class="empty-state">تعذّر فتح المحادثة — الرابط غير صحيح.</div>`;
+  }
+
+  document.getElementById("chat-title").textContent = "💬 " + otherName;
+  document.getElementById("chat-sub").textContent = ctxType ? "بخصوص إعلان" : "محادثة عامة";
+
+  let me = null;
+  const msgsBox = document.getElementById("chat-msgs");
+
+  function bubbleHtml(m) {
+    const mine = m.sender_id === me.id;
+    return `<div class="msg-bubble ${mine ? "msg-mine" : "msg-other"}">${esc(m.body)}<span class="msg-time">${timeAgo(m.created_at)}</span></div>`;
+  }
+
+  async function loadMessages(scrollToEnd) {
+    if (!withId) return;
+    const items = await DB.messages.list((m) =>
+      (m.sender_id === me.id && m.receiver_id === withId) ||
+      (m.sender_id === withId && m.receiver_id === me.id)
+    );
+    items.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    if (!items.length) {
+      msgsBox.innerHTML = `<div class="empty-state"><span class="ic">💬</span>ابدأ المحادثة الآن</div>`;
+      return;
+    }
+    msgsBox.innerHTML = items.map(bubbleHtml).join("");
+    if (scrollToEnd) msgsBox.scrollTop = msgsBox.scrollHeight;
+  }
+
+  document.getElementById("chat-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("chat-input");
+    const body = input.value.trim();
+    if (!body || !withId) return;
+    input.value = "";
+    try {
+      await DB.messages.add({ receiverId: withId, contextType: ctxType || "general", contextId: ctxId || withId, body });
+      await loadMessages(true);
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  });
+
+  (async () => {
+    me = await DB.requireAuth();
+    await loadMessages(true);
+    setInterval(() => loadMessages(false), 4000);
+  })();
+</script>
+</body>
+</html>

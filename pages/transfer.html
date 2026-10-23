@@ -149,7 +149,7 @@
         ${i.notes ? `<p style="margin:4px 0 0;font-size:.85rem;color:var(--ink-light)">${esc(i.notes)}</p>` : ""}
         <div class="meta-row" style="justify-content:space-between">
           <span style="font-size:.72rem">${timeAgo(i.createdAt)}</span>
-          ${me && me.id === i.requesterId ? "" : `<button class="btn btn-sm btn-primary" onclick="toast('رقم التواصل: ${esc(i.requesterPhone)}')">تواصل</button>`}
+          ${me && me.id === i.requesterId ? "" : `<button class="btn btn-sm btn-primary" onclick="goChat('${i.requesterId}','transfer','${i.id}','${esc(i.requesterName)}')">تواصل</button>`}
         </div>
       </div>
     `).join("");

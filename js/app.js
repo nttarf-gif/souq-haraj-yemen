@@ -28,6 +28,14 @@ function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+function goChat(withId, contextType, contextId, name) {
+  DB.currentUser().then((u) => {
+    if (!u) { window.location.href = "/pages/auth.html?next=" + encodeURIComponent(window.location.pathname + window.location.search); return; }
+    if (u.id === withId) { toast("هذا إعلانك أنت"); return; }
+    window.location.href = `/pages/chat.html?with=${withId}&context_type=${contextType}&context_id=${contextId}&name=${encodeURIComponent(name || "")}`;
+  });
+}
+
 function toast(msg, kind) {
   let el = document.getElementById("hy-toast");
   if (!el) {

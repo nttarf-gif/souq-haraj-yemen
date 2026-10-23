@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>رسائلي — سوق الحراج اليمني</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<main>
+  <div class="container">
+    <div class="page-head"><h2>💬 رسائلي</h2></div>
+    <div id="inbox-list"><div class="empty-state">جارِ التحميل...</div></div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/data.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  initChrome("");
+
+  (async () => {
+    const me = await DB.requireAuth();
+    const items = await DB.messages.list();
+    const box = document.getElementById("inbox-list");
+
+    const byPartner = new Map();
+    items.forEach((m) => {
+      const mine = m.sender_id === me.id;
+      const partnerId = mine ? m.receiver_id : m.sender_id;
+      const partner = mine ? m.receiver : m.sender;
+      const existing = byPartner.get(partnerId);
+      if (!existing || new Date(m.created_at) > new Date(existing.created_at)) {
+        byPartner.set(partnerId, {
+          partnerId,
+          partnerName: partner?.full_name || "مستخدم",
+          lastBody: m.body,
+          createdAt: m.created_at,
+          mine,
+        });
+      }
+    });
+
+    const convos = [...byPartner.values()].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    if (!convos.length) {
+      box.innerHTML = `<div class="empty-state"><span class="ic">💬</span>لا توجد محادثات بعد. ابدأ من أي إعلان بالضغط على "تواصل".</div>`;
+      return;
+    }
+
+    box.innerHTML = convos.map((c) => `
+      <a class="card listing-card" style="display:block" href="/pages/chat.html?with=${c.partnerId}&name=${encodeURIComponent(c.partnerName)}">
+        <div class="top-row">
+          <h4>${esc(c.partnerName)}</h4>
+          <span style="font-size:.72rem;color:var(--ink-light)">${timeAgo(c.createdAt)}</span>
+        </div>
+        <p style="margin:4px 0 0;font-size:.85rem;color:var(--ink-light)">${c.mine ? "أنت: " : ""}${esc(c.lastBody)}</p>
+      </a>
+    `).join("");
+  })();
+
+  renderFooter();
+</script>
+</body>
+</html>

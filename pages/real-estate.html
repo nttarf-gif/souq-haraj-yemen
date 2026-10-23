@@ -183,19 +183,11 @@
         ${i.description ? `<p style="margin:4px 0 0;font-size:.85rem;color:var(--ink-light)">${esc(i.description)}</p>` : ""}
         <div class="meta-row" style="justify-content:space-between;margin-top:6px">
           <span style="font-size:.72rem">نشره ${esc(i.ownerName)} · ${timeAgo(i.createdAt)}</span>
-          ${me && me.id === i.ownerId ? "" : `<button class="btn btn-sm btn-primary" onclick="contactOwner('${i.id}','${esc(i.ownerName)}','${esc(i.ownerPhone)}')">تواصل مع المعلن</button>`}
+          ${me && me.id === i.ownerId ? "" : `<button class="btn btn-sm btn-primary" onclick="goChat('${i.ownerId}','real_estate','${i.id}','${esc(i.ownerName)}')">تواصل مع المعلن</button>`}
         </div>
       </div>
     `).join("");
   }
-
-  function contactOwner(id, name, phone) {
-    DB.currentUser().then((u) => {
-      if (!u) { window.location.href = "/pages/auth.html"; return; }
-      toast("رقم تواصل " + name + ": " + phone);
-    });
-  }
-  window.contactOwner = contactOwner;
 
   loadList();
   renderFooter();

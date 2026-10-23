@@ -378,7 +378,9 @@ const DB = (() => {
   // ---------------- رسائل ----------------
   const messages = {
     async list(filterFn) {
-      const { data, error } = await sb.from("messages").select("*").order("created_at", { ascending: false });
+      const { data, error } = await sb.from("messages")
+        .select("*, sender:profiles!sender_id(full_name,phone), receiver:profiles!receiver_id(full_name,phone)")
+        .order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
       let items = data || [];
       if (filterFn) items = items.filter(filterFn);

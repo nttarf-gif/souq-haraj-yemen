@@ -55,6 +55,9 @@
         </div>
       </div>
 
+      <a href="/pages/inbox.html" class="btn btn-outline" style="margin-bottom:12px">💬 رسائلي</a>
+      ${u.isAdmin ? `<a href="/pages/admin.html" class="btn btn-amber" style="margin-bottom:12px">⚙️ لوحة التحكم</a>` : ""}
+
       <button class="btn btn-outline" id="logout-btn">تسجيل الخروج</button>
     `;
     document.getElementById("logout-btn").onclick = () => {
