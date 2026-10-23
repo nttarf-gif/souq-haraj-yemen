@@ -70,7 +70,12 @@
         <label>تفاصيل إضافية</label>
         <textarea id="f-desc" placeholder="وصف العقار، الطابق، المرافق..."></textarea>
       </div>
-      <button class="btn btn-primary" type="submit">نشر الإعلان</button>
+      <div class="field">
+        <label>صورة العقار (إلزامية)</label>
+        <input type="file" id="f-image" accept="image/*" required>
+        <small>الصورة إلزامية حتى تساعد المهتمين على الثقة بالإعلان</small>
+      </div>
+      <button class="btn btn-primary" type="submit" id="submit-btn">نشر الإعلان</button>
     </form>
 
     <div class="tabs" id="tabs">
@@ -99,13 +104,17 @@
     });
   };
 
-  form.addEventListener("submit", (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    DB.currentUser().then((u) => {
-      DB.realEstate.add({
-        ownerId: u.id,
-        ownerName: u.fullName,
-        ownerPhone: u.phone,
+    const fileInput = document.getElementById("f-image");
+    const file = fileInput.files[0];
+    if (!file) { toast("الرجاء اختيار صورة للعقار", "error"); return; }
+    const submitBtn = document.getElementById("submit-btn");
+    submitBtn.disabled = true;
+    submitBtn.textContent = "جارِ رفع الصورة...";
+    try {
+      const coverImageUrl = await DB.uploadImage(file, "real-estate");
+      await DB.realEstate.add({
         title: document.getElementById("f-title").value.trim(),
         propertyType: document.getElementById("f-type").value,
         dealType: document.getElementById("f-deal").value,
@@ -116,12 +125,17 @@
         areaSqm: document.getElementById("f-area").value,
         rooms: document.getElementById("f-rooms").value,
         description: document.getElementById("f-desc").value.trim(),
-      }).then(() => {
-        toast("تم نشر إعلانك");
-        form.reset(); form.style.display = "none";
-        loadList();
+        coverImageUrl,
       });
-    });
+      toast("تم نشر إعلانك");
+      form.reset(); form.style.display = "none";
+      loadList();
+    } catch (err) {
+      toast(err.message, "error");
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "نشر الإعلان";
+    }
   });
 
   let activeFilter = "all";
@@ -154,6 +168,7 @@
     }
     box.innerHTML = items.map(i => `
       <div class="card listing-card">
+        ${i.coverImageUrl ? `<img src="${esc(i.coverImageUrl)}" alt="${esc(i.title)}" style="width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:10px;margin-bottom:8px" loading="lazy">` : ""}
         <div class="top-row">
           <h4>${esc(i.title)}</h4>
           <span class="price-tag">${fmtPrice(i.price, i.currency)}</span>

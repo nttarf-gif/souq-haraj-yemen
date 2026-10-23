@@ -70,6 +70,17 @@ const DB = (() => {
     await sb.auth.signOut();
   }
 
+  // ---------------- Image upload (Supabase Storage) ----------------
+  async function uploadImage(file, folder) {
+    const u = await requireAuth();
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const path = `${folder || "misc"}/${u.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await sb.storage.from("listing-images").upload(path, file, { upsert: false, cacheControl: "3600" });
+    if (error) throw new Error(error.message);
+    const { data } = sb.storage.from("listing-images").getPublicUrl(path);
+    return data.publicUrl;
+  }
+
   async function requireAuth() {
     const u = await currentUser();
     if (!u) {
@@ -102,6 +113,7 @@ const DB = (() => {
         area_sqm: item.areaSqm || null,
         rooms: item.rooms || null,
         description: item.description || null,
+        cover_image_url: item.coverImageUrl || null,
       }).select().single();
       if (error) throw new Error(error.message);
       return mapListing(data);
@@ -131,6 +143,7 @@ const DB = (() => {
       status: d.status,
       createdAt: d.created_at,
       ownerPhone: d.owner?.phone || "",
+      coverImageUrl: d.cover_image_url || "",
     };
   }
   function toSnakeListingPatch(patch) {
@@ -409,7 +422,7 @@ const DB = (() => {
   };
 
   return {
-    currentUser, signup, login, logout, requireAuth,
+    currentUser, signup, login, logout, requireAuth, uploadImage,
     realEstate, rides, shipments, transfers, payments, messages,
     admin,
   };
