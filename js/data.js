@@ -71,11 +71,34 @@ const DB = (() => {
   }
 
   // ---------------- Image upload (Supabase Storage) ----------------
+  // يضغط الصورة في المتصفح قبل الرفع (أهم شيء لإنترنت 3G الضعيف في اليمن):
+  // يقلّص العرض لحد أقصى ويحوّلها JPEG بجودة معتدلة، فتنخفض من ميجابايتات لعشرات الكيلوبايت.
+  async function compressImage(file, maxWidth = 1000, quality = 0.72) {
+    if (!file.type || !file.type.startsWith("image/")) return file;
+    try {
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, maxWidth / bitmap.width);
+      const w = Math.max(1, Math.round(bitmap.width * scale));
+      const h = Math.max(1, Math.round(bitmap.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+      if (!blob) return file;
+      const baseName = (file.name || "photo").replace(/\.\w+$/, "");
+      return new File([blob], baseName + ".jpg", { type: "image/jpeg" });
+    } catch {
+      return file; // تعذّر الضغط (متصفح قديم مثلاً) — نرفع الأصل بدل ما نفشل
+    }
+  }
+
   async function uploadImage(file, folder) {
     const u = await requireAuth();
-    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const compressed = await compressImage(file);
+    const ext = (compressed.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
     const path = `${folder || "misc"}/${u.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const { error } = await sb.storage.from("listing-images").upload(path, file, { upsert: false, cacheControl: "3600" });
+    const { error } = await sb.storage.from("listing-images").upload(path, compressed, { upsert: false, cacheControl: "3600" });
     if (error) throw new Error(error.message);
     const { data } = sb.storage.from("listing-images").getPublicUrl(path);
     return data.publicUrl;
