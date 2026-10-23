@@ -127,6 +127,10 @@
       : `${esc(i.otherCountry || "دولة أخرى")} ← اليمن`;
   }
 
+  const TRANSFER_STATUS_LABELS = {
+    open: "🟢 مفتوح", matched: "🤝 تم الربط", completed: "✅ تم الاستلام", cancelled: "✖️ ملغى",
+  };
+
   async function loadList() {
     const me = await DB.currentUser();
     const items = await DB.transfers.list();
@@ -145,14 +149,34 @@
         <div class="meta-row">
           <span class="badge">${esc(i.preferredWallet)}</span>
           ${i.city ? `<span>📍 ${esc(i.city)}</span>` : ""}
+          <span class="badge status-open">${TRANSFER_STATUS_LABELS[i.status] || i.status}</span>
         </div>
         ${i.notes ? `<p style="margin:4px 0 0;font-size:.85rem;color:var(--ink-light)">${esc(i.notes)}</p>` : ""}
         <div class="meta-row" style="justify-content:space-between">
           <span style="font-size:.72rem">${timeAgo(i.createdAt)}</span>
           ${me && me.id === i.requesterId ? "" : `<button class="btn btn-sm btn-primary" onclick="goChat('${i.requesterId}','transfer','${i.id}','${esc(i.requesterName)}')">تواصل</button>`}
         </div>
+        ${me && me.id === i.requesterId ? `
+        <div class="meta-row" style="margin-top:6px">
+          <select class="status-select" data-id="${i.id}" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:.78rem">
+            ${Object.keys(TRANSFER_STATUS_LABELS).map((s) => `<option value="${s}" ${i.status === s ? "selected" : ""}>${TRANSFER_STATUS_LABELS[s]}</option>`).join("")}
+          </select>
+        </div>` : ""}
       </div>
     `).join("");
+
+    box.querySelectorAll(".status-select").forEach((sel) => {
+      sel.addEventListener("change", async () => {
+        const id = sel.dataset.id;
+        const newStatus = sel.value;
+        try {
+          await DB.transfers.update(id, { status: newStatus });
+          await DB.notifyInterested("transfer", id, me.id, `💸 تحديث حالة طلب التحويل: ${TRANSFER_STATUS_LABELS[newStatus]}`);
+          toast("تم تحديث الحالة وإشعار المهتمين");
+          loadList();
+        } catch (err) { toast(err.message, "error"); }
+      });
+    });
   }
 
   loadList();

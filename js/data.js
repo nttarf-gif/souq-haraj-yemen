@@ -446,8 +446,21 @@ const DB = (() => {
     },
   };
 
+  // يرسل إشعارًا (رسالة) لكل من راسل بخصوص هذا الإعلان/الطلب من قبل، عند تغيّر حالته
+  async function notifyInterested(contextType, contextId, fromUserId, body) {
+    const { data, error } = await sb.from("messages").select("sender_id,receiver_id")
+      .eq("context_type", contextType).eq("context_id", contextId);
+    if (error) return;
+    const ids = new Set();
+    (data || []).forEach((m) => { ids.add(m.sender_id); ids.add(m.receiver_id); });
+    ids.delete(fromUserId);
+    await Promise.all([...ids].map((rid) =>
+      sb.from("messages").insert({ sender_id: fromUserId, receiver_id: rid, context_type: contextType, context_id: contextId, body })
+    ));
+  }
+
   return {
-    currentUser, signup, login, logout, requireAuth, uploadImage,
+    currentUser, signup, login, logout, requireAuth, uploadImage, notifyInterested,
     realEstate, rides, shipments, transfers, payments, messages,
     admin,
   };

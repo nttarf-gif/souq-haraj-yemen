@@ -100,6 +100,10 @@
     return c === "YE" ? "اليمن" : c === "SA" ? "السعودية" : c;
   }
 
+  const SHIPMENT_STATUS_LABELS = {
+    posted: "📮 منشورة", matched: "🤝 تم الربط مع ناقل", in_transit: "🚚 في الطريق", delivered: "✅ تم التسليم", cancelled: "✖️ ملغاة",
+  };
+
   function loadList() {
     DB.currentUser().then((me) => {
       DB.shipments.list().then((items) => {
@@ -117,14 +121,33 @@
             <p style="margin:4px 0 0;font-size:.85rem;color:var(--ink-light)">${esc(i.itemDescription)}</p>
             <div class="meta-row">
               ${i.weightKg ? `<span>⚖️ ${esc(i.weightKg)} كجم</span>` : ""}
-              <span class="badge status-open">${i.status === "posted" ? "متاحة" : i.status}</span>
+              <span class="badge status-open">${SHIPMENT_STATUS_LABELS[i.status] || i.status}</span>
             </div>
             <div class="meta-row" style="justify-content:space-between">
               <span style="font-size:.72rem">${esc(i.senderName)} · ${timeAgo(i.createdAt)}</span>
               ${me && me.id === i.senderId ? "" : `<button class="btn btn-sm btn-primary" onclick="goChat('${i.senderId}','shipment','${i.id}','${esc(i.senderName)}')">تواصل</button>`}
             </div>
+            ${me && me.id === i.senderId ? `
+            <div class="meta-row" style="margin-top:6px">
+              <select class="status-select" data-id="${i.id}" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:.78rem">
+                ${Object.keys(SHIPMENT_STATUS_LABELS).map((s) => `<option value="${s}" ${i.status === s ? "selected" : ""}>${SHIPMENT_STATUS_LABELS[s]}</option>`).join("")}
+              </select>
+            </div>` : ""}
           </div>
         `).join("");
+
+        box.querySelectorAll(".status-select").forEach((sel) => {
+          sel.addEventListener("change", async () => {
+            const id = sel.dataset.id;
+            const newStatus = sel.value;
+            try {
+              await DB.shipments.update(id, { status: newStatus });
+              await DB.notifyInterested("shipment", id, me.id, `📦 تحديث حالة الشحنة: ${SHIPMENT_STATUS_LABELS[newStatus]}`);
+              toast("تم تحديث الحالة وإشعار المهتمين");
+              loadList();
+            } catch (err) { toast(err.message, "error"); }
+          });
+        });
       });
     });
   }
