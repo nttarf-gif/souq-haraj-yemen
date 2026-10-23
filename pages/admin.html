@@ -183,6 +183,14 @@
       ],
       listCols: ["message", "page_url", "created_at"],
     },
+    favorites: {
+      label: "المفضلة", icon: "❤️", canAdd: false, canDelete: true,
+      columns: [
+        { key: "target_type", label: "النوع", type: "text", readonly: true },
+        { key: "created_at", label: "التاريخ", type: "date", readonly: true },
+      ],
+      listCols: ["target_type", "created_at"],
+    },
   };
 
   const STATUS_LABELS = {

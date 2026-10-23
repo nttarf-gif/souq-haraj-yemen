@@ -150,8 +150,11 @@
     loadList();
   });
 
+  let favSet = new Set();
+
   function loadList() {
-    DB.currentUser().then((me) => {
+    Promise.all([DB.currentUser(), DB.favorites.list()]).then(([me, favs]) => {
+      favSet = new Set(favs.filter(f => f.targetType === "real_estate").map(f => f.targetId));
       DB.realEstate.list().then((items) => {
         let filtered = items.filter(i => activeFilter === "all" || i.dealType === activeFilter);
         if (onlyMine && me) filtered = filtered.filter(i => i.ownerId === me.id);
@@ -171,7 +174,10 @@
         ${i.coverImageUrl ? `<img src="${esc(i.coverImageUrl)}" alt="${esc(i.title)}" style="width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:10px;margin-bottom:8px" loading="lazy">` : ""}
         <div class="top-row">
           <h4>${esc(i.title)}</h4>
-          <span class="price-tag">${fmtPrice(i.price, i.currency)}</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="fav-btn" data-fav="${i.id}" aria-label="حفظ في المفضلة" style="background:none;border:none;font-size:1.1rem;cursor:pointer;padding:2px">${favSet.has(i.id) ? "❤️" : "🤍"}</button>
+            <span class="price-tag">${fmtPrice(i.price, i.currency)}</span>
+          </div>
         </div>
         <div class="meta-row">
           <span class="badge">${i.dealType === "sale" ? "للبيع" : "للإيجار"}</span>
@@ -199,6 +205,20 @@
     `).join("");
 
     wireBidding(items, me);
+    wireFavorites();
+  }
+
+  function wireFavorites() {
+    document.querySelectorAll("[data-fav]").forEach((btn) => {
+      btn.onclick = async () => {
+        const id = btn.dataset.fav;
+        try {
+          const nowFav = await DB.favorites.toggle("real_estate", id);
+          btn.textContent = nowFav ? "❤️" : "🤍";
+          if (nowFav) favSet.add(id); else favSet.delete(id);
+        } catch (err) { toast(err.message, "error"); }
+      };
+    });
   }
 
   const OFFER_STATUS_LABELS = { pending: "بانتظار الرد", accepted: "✅ مقبول", rejected: "✖️ مرفوض" };

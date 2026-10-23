@@ -556,6 +556,7 @@ const DB = (() => {
     prohibitedKeywords: { table: "prohibited_keywords", idCol: "id" },
     adminAlerts:        { table: "admin_alerts",         idCol: "id" },
     appErrors:          { table: "app_errors",           idCol: "id" },
+    favorites:          { table: "favorites",             idCol: "id" },
   };
 
   const admin = {
@@ -613,6 +614,30 @@ const DB = (() => {
     },
   };
 
+  // ---------------- المفضلة ----------------
+  const favorites = {
+    async list() {
+      const u = await currentUser();
+      if (!u) return [];
+      const { data, error } = await sb.from("favorites").select("*").eq("user_id", u.id).order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data || []).map((d) => ({ id: d.id, targetType: d.target_type, targetId: d.target_id, createdAt: d.created_at }));
+    },
+    // يبدّل حالة المفضلة لعنصر معيّن، يرجّع true لو صارت مفضّلة والآن false لو أُزيلت
+    async toggle(targetType, targetId) {
+      const u = await requireAuth();
+      const { data: existing } = await sb.from("favorites").select("id")
+        .eq("user_id", u.id).eq("target_type", targetType).eq("target_id", targetId).maybeSingle();
+      if (existing) {
+        await sb.from("favorites").delete().eq("id", existing.id);
+        return false;
+      }
+      const { error } = await sb.from("favorites").insert({ user_id: u.id, target_type: targetType, target_id: targetId });
+      if (error) throw new Error(error.message);
+      return true;
+    },
+  };
+
   // يرسل إشعارًا (رسالة) لكل من راسل بخصوص هذا الإعلان/الطلب من قبل، عند تغيّر حالته
   async function notifyInterested(contextType, contextId, fromUserId, body) {
     const { data, error } = await sb.from("messages").select("sender_id,receiver_id")
@@ -631,6 +656,7 @@ const DB = (() => {
     touchPresence, isOnline, logClientError,
     realEstate, rides, shipments, transfers, payments, messages, offers,
     serviceCategories, serviceListings,
+    favorites,
     admin,
   };
 })();

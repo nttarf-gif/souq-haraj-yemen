@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>مفضلتي — سوق الحراج اليمني</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<main>
+  <div class="container">
+    <div class="page-head"><h2>❤️ مفضلتي</h2><p>الإعلانات والخدمات اللي حفظتها</p></div>
+    <div id="fav-list"><div class="empty-state">جارِ التحميل...</div></div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/data.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  initChrome("");
+
+  async function removeFav(targetType, targetId) {
+    await DB.favorites.toggle(targetType, targetId);
+    load();
+  }
+
+  async function load() {
+    await DB.requireAuth();
+    const box = document.getElementById("fav-list");
+    const favs = await DB.favorites.list();
+    if (!favs.length) {
+      box.innerHTML = `<div class="empty-state"><span class="ic">❤️</span>ما حفظت أي إعلان بعد. اضغط على 🤍 بأي إعلان عقاري أو خدمة لحفظه هنا.</div>`;
+      return;
+    }
+
+    const realEstateIds = new Set(favs.filter((f) => f.targetType === "real_estate").map((f) => f.targetId));
+    const serviceIds = new Set(favs.filter((f) => f.targetType === "service").map((f) => f.targetId));
+
+    const [allRealEstate, allServices] = await Promise.all([
+      realEstateIds.size ? DB.realEstate.list() : [],
+      serviceIds.size ? DB.serviceListings.list() : [],
+    ]);
+
+    const favRealEstate = allRealEstate.filter((i) => realEstateIds.has(i.id));
+    const favServices = allServices.filter((i) => serviceIds.has(i.id));
+
+    if (!favRealEstate.length && !favServices.length) {
+      box.innerHTML = `<div class="empty-state"><span class="ic">❤️</span>الإعلانات اللي حفظتها لم تعد متاحة (ربما حُذفت).</div>`;
+      return;
+    }
+
+    box.innerHTML = `
+      ${favRealEstate.length ? `
+        <h3 style="font-size:.95rem;margin:10px 0 6px">🏠 عقارات</h3>
+        ${favRealEstate.map((i) => `
+          <div class="card listing-card">
+            <div class="top-row">
+              <h4>${esc(i.title)}</h4>
+              <span class="price-tag">${fmtPrice(i.price, i.currency)}</span>
+            </div>
+            <div class="meta-row">
+              <span>📍 ${esc(i.city)}</span>
+            </div>
+            <div class="meta-row" style="justify-content:space-between;margin-top:6px">
+              <a href="/pages/real-estate.html" class="btn btn-sm btn-outline">عرض القسم</a>
+              <button class="btn btn-sm btn-outline" onclick="removeFav('real_estate','${i.id}')">🗑️ إزالة من المفضلة</button>
+            </div>
+          </div>
+        `).join("")}
+      ` : ""}
+      ${favServices.length ? `
+        <h3 style="font-size:.95rem;margin:14px 0 6px">🛠️ خدمات حرة</h3>
+        ${favServices.map((i) => `
+          <div class="card listing-card">
+            <div class="top-row">
+              <h4>${esc(i.title)}</h4>
+              ${i.priceNote ? `<span class="price-tag">${esc(i.priceNote)}</span>` : ""}
+            </div>
+            <div class="meta-row">
+              ${i.city ? `<span>📍 ${esc(i.city)}</span>` : ""}
+            </div>
+            <div class="meta-row" style="justify-content:space-between;margin-top:6px">
+              <a href="/pages/services.html" class="btn btn-sm btn-outline">عرض القسم</a>
+              <button class="btn btn-sm btn-outline" onclick="removeFav('service','${i.id}')">🗑️ إزالة من المفضلة</button>
+            </div>
+          </div>
+        `).join("")}
+      ` : ""}
+    `;
+  }
+
+  load();
+  renderFooter();
+</script>
+</body>
+</html>

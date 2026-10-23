@@ -152,8 +152,11 @@
     return c ? `${c.icon} ${c.name}` : "";
   }
 
+  let favSet = new Set();
+
   async function loadList() {
-    const me = await DB.currentUser();
+    const [me, favs] = await Promise.all([DB.currentUser(), DB.favorites.list()]);
+    favSet = new Set(favs.filter((f) => f.targetType === "service").map((f) => f.targetId));
     const items = await DB.serviceListings.list((i) => i.status === "active");
     const filtered = activeCat === "all" ? items : items.filter((i) => i.categoryId === activeCat);
     const box = document.getElementById("services-list");
@@ -165,7 +168,10 @@
       <div class="card listing-card">
         <div class="top-row">
           <h4>${esc(i.title)}</h4>
-          ${i.priceNote ? `<span class="price-tag">${esc(i.priceNote)}</span>` : ""}
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="fav-btn" data-fav="${i.id}" aria-label="حفظ في المفضلة" style="background:none;border:none;font-size:1.1rem;cursor:pointer;padding:2px">${favSet.has(i.id) ? "❤️" : "🤍"}</button>
+            ${i.priceNote ? `<span class="price-tag">${esc(i.priceNote)}</span>` : ""}
+          </div>
         </div>
         <div class="meta-row">
           <span class="badge">${esc(catLabel(i.categoryId))}</span>
@@ -178,6 +184,20 @@
         </div>
       </div>
     `).join("");
+    wireFavorites();
+  }
+
+  function wireFavorites() {
+    document.querySelectorAll("[data-fav]").forEach((btn) => {
+      btn.onclick = async () => {
+        const id = btn.dataset.fav;
+        try {
+          const nowFav = await DB.favorites.toggle("service", id);
+          btn.textContent = nowFav ? "❤️" : "🤍";
+          if (nowFav) favSet.add(id); else favSet.delete(id);
+        } catch (err) { toast(err.message, "error"); }
+      };
+    });
   }
 
   loadCategories();
