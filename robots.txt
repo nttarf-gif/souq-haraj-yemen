@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /pages/admin.html
+Disallow: /pages/account.html
+Disallow: /pages/auth.html
+Disallow: /pages/chat.html
+Disallow: /pages/inbox.html
+Disallow: /pages/favorites.html
+
+Sitemap: https://souq-haraj-yemen-app.netlify.app/sitemap.xml
