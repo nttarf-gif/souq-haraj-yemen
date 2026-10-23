@@ -116,6 +116,21 @@ const DB = (() => {
     return Date.now() - new Date(lastSeenAt).getTime() < 3 * 60 * 1000;
   }
 
+  // مراقبة الأخطاء: يسجّل أي خطأ JS يحدث للمستخدمين في جدول app_errors
+  // ليراجعه المشرف من لوحة التحكم — لا يوقف عمل الصفحة أبدًا حتى لو فشل التسجيل نفسه
+  async function logClientError(message, stack, pageUrl) {
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      await sb.from("app_errors").insert({
+        message: String(message || "خطأ غير معروف").slice(0, 500),
+        stack: stack ? String(stack).slice(0, 2000) : null,
+        page_url: pageUrl || window.location.pathname,
+        user_id: session ? session.user.id : null,
+        user_agent: navigator.userAgent,
+      });
+    } catch (_) { /* تجاهل فشل تسجيل الخطأ نفسه حتى لا يسبب حلقة أخطاء */ }
+  }
+
   async function requireAuth() {
     const u = await currentUser();
     if (!u) {
@@ -540,6 +555,7 @@ const DB = (() => {
     serviceListings:   { table: "service_listings",   idCol: "id" },
     prohibitedKeywords: { table: "prohibited_keywords", idCol: "id" },
     adminAlerts:        { table: "admin_alerts",         idCol: "id" },
+    appErrors:          { table: "app_errors",           idCol: "id" },
   };
 
   const admin = {
@@ -579,6 +595,22 @@ const DB = (() => {
       const { count, error } = await sb.from("admin_alerts").select("*", { count: "exact", head: true }).eq("status", "open");
       return error ? 0 : (count || 0);
     },
+    async recentErrorsCount() {
+      const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      const { count, error } = await sb.from("app_errors").select("*", { count: "exact", head: true }).gte("created_at", since);
+      return error ? 0 : (count || 0);
+    },
+    async topRecentErrors(limit) {
+      const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+      const { data, error } = await sb.from("app_errors").select("message").gte("created_at", since).limit(500);
+      if (error || !data) return [];
+      const counts = {};
+      data.forEach((r) => { counts[r.message] = (counts[r.message] || 0) + 1; });
+      return Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit || 5)
+        .map(([message, count]) => ({ message, count }));
+    },
   };
 
   // يرسل إشعارًا (رسالة) لكل من راسل بخصوص هذا الإعلان/الطلب من قبل، عند تغيّر حالته
@@ -596,7 +628,7 @@ const DB = (() => {
 
   return {
     currentUser, signup, login, logout, requireAuth, uploadImage, notifyInterested,
-    touchPresence, isOnline,
+    touchPresence, isOnline, logClientError,
     realEstate, rides, shipments, transfers, payments, messages, offers,
     serviceCategories, serviceListings,
     admin,

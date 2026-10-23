@@ -173,6 +173,16 @@
       ],
       listCols: ["table_name", "keyword", "status", "created_at"],
     },
+    appErrors: {
+      label: "أخطاء التطبيق", icon: "🐞", canAdd: false, canDelete: true,
+      columns: [
+        { key: "message", label: "الخطأ", type: "text", readonly: true },
+        { key: "page_url", label: "الصفحة", type: "text", readonly: true },
+        { key: "user_agent", label: "الجهاز/المتصفح", type: "text", readonly: true },
+        { key: "created_at", label: "التاريخ", type: "date", readonly: true },
+      ],
+      listCols: ["message", "page_url", "created_at"],
+    },
   };
 
   const STATUS_LABELS = {
@@ -241,15 +251,21 @@
   }
 
   async function renderDashboard(body) {
-    let stats, openAlerts;
+    let stats, openAlerts, recentErrors, topErrors;
     try {
       stats = await DB.admin.stats();
       openAlerts = await DB.admin.openAlertsCount();
+      recentErrors = await DB.admin.recentErrorsCount();
+      topErrors = await DB.admin.topRecentErrors(5);
     } catch (err) { body.innerHTML = `<div class="alert alert-danger">${esc(err.message)}</div>`; return; }
     body.innerHTML = `
       ${openAlerts > 0 ? `
         <div class="alert alert-danger" style="cursor:pointer" id="open-alerts-banner">
           🚨 يوجد ${openAlerts} تنبيه مراقبة مفتوح (احتمال بيع ممنوعات) — اضغط هنا للمراجعة
+        </div>` : ""}
+      ${recentErrors > 0 ? `
+        <div class="alert alert-danger" style="cursor:pointer" id="errors-banner">
+          🐞 حدث ${recentErrors} خطأ تقني للمستخدمين خلال ٢٤ ساعة — اضغط هنا للتفاصيل
         </div>` : ""}
       <div class="admin-stats">
         ${Object.keys(ENTITIES).map((k) => `
@@ -258,6 +274,18 @@
             <span class="l">${ENTITIES[k].icon} ${ENTITIES[k].label}</span>
           </div>`).join("")}
       </div>
+      ${topErrors.length ? `
+        <div class="card" style="margin-top:12px">
+          <h4 style="margin:0 0 8px">🔎 أكثر الأخطاء تكررًا (آخر ٧ أيام)</h4>
+          ${topErrors.map((e) => `
+            <div class="meta-row" style="justify-content:space-between;padding:6px 0;border-top:1px solid var(--border)">
+              <span style="font-size:.8rem">${esc(e.message)}</span>
+              <span class="badge">${e.count} مرة</span>
+            </div>`).join("")}
+          <p style="font-size:.75rem;color:var(--ink-light);margin:8px 0 0">
+            💡 توصية: إذا تكرر نفس الخطأ كثيرًا، على الأغلب يحتاج إصلاحًا في الكود — أعطِ هذا الوصف لمطوّرك أو لـ Claude لإصلاحه.
+          </p>
+        </div>` : ""}
       <div class="alert alert-info">💡 اضغط على أي قسم من الأعلى لعرض بياناته والتحكم بها: تعديل، حذف، أو إضافة جديد مباشرة من هنا — دون المساس بالكود البرمجي.</div>
     `;
     const banner = document.getElementById("open-alerts-banner");
@@ -266,6 +294,14 @@
         [...document.querySelectorAll("#admin-tabs button")].forEach((b) => b.classList.remove("active"));
         document.querySelector('#admin-tabs button[data-t="adminAlerts"]').classList.add("active");
         showTab("adminAlerts");
+      };
+    }
+    const errBanner = document.getElementById("errors-banner");
+    if (errBanner) {
+      errBanner.onclick = () => {
+        [...document.querySelectorAll("#admin-tabs button")].forEach((b) => b.classList.remove("active"));
+        document.querySelector('#admin-tabs button[data-t="appErrors"]').classList.add("active");
+        showTab("appErrors");
       };
     }
   }

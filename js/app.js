@@ -104,3 +104,18 @@ function initChrome(activeKey) {
     setInterval(() => DB.touchPresence(), 90000);
   });
 }
+
+// ---------------- مراقبة الأخطاء (تعمل في كل صفحة تحمّل app.js) ----------------
+(function watchErrors() {
+  if (typeof DB === "undefined" || !DB.logClientError) return;
+  window.addEventListener("error", (e) => {
+    DB.logClientError(e.message, e.error && e.error.stack);
+  });
+  window.addEventListener("unhandledrejection", (e) => {
+    const reason = e.reason;
+    DB.logClientError(
+      (reason && reason.message) || String(reason),
+      reason && reason.stack
+    );
+  });
+})();
