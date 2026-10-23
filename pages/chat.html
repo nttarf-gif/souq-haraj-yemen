@@ -52,6 +52,14 @@
   document.getElementById("chat-title").textContent = "💬 " + otherName;
   document.getElementById("chat-sub").textContent = ctxType ? "بخصوص إعلان" : "محادثة عامة";
 
+  if (withId) {
+    sb.from("profiles").select("last_seen_at").eq("id", withId).single().then(({ data }) => {
+      if (data && DB.isOnline(data.last_seen_at)) {
+        document.getElementById("chat-sub").innerHTML = '<span class="dot on"></span> متصل الآن';
+      }
+    });
+  }
+
   let me = null;
   const msgsBox = document.getElementById("chat-msgs");
 
@@ -91,8 +99,10 @@
 
   (async () => {
     me = await DB.requireAuth();
+    DB.touchPresence();
     await loadMessages(true);
     setInterval(() => loadMessages(false), 4000);
+    setInterval(() => DB.touchPresence(), 90000);
   })();
 </script>
 </body>

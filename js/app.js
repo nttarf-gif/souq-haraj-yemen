@@ -96,5 +96,10 @@ function renderFooter() {
 
 function initChrome(activeKey) {
   renderHeader(activeKey);
-  window.addEventListener("DOMContentLoaded", () => {}); // placeholder
+  // "متصل الآن" خفيف: نبضة كل 90 ثانية بدل اتصال دائم (يتقطع على 3G الضعيف)
+  DB.currentUser().then((u) => {
+    if (!u) return;
+    DB.touchPresence();
+    setInterval(() => DB.touchPresence(), 90000);
+  });
 }

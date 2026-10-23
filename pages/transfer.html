@@ -153,7 +153,7 @@
         </div>
         ${i.notes ? `<p style="margin:4px 0 0;font-size:.85rem;color:var(--ink-light)">${esc(i.notes)}</p>` : ""}
         <div class="meta-row" style="justify-content:space-between">
-          <span style="font-size:.72rem">${timeAgo(i.createdAt)}</span>
+          <span style="font-size:.72rem">${esc(i.requesterName)}${i.requesterOnline ? ' <span class="dot on" title="متصل الآن"></span>' : ''} · ${timeAgo(i.createdAt)}</span>
           ${me && me.id === i.requesterId ? "" : `<button class="btn btn-sm btn-primary" onclick="goChat('${i.requesterId}','transfer','${i.id}','${esc(i.requesterName)}')">تواصل</button>`}
         </div>
         ${me && me.id === i.requesterId ? `

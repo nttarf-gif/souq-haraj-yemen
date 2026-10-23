@@ -104,6 +104,18 @@ const DB = (() => {
     return data.publicUrl;
   }
 
+  // بديل خفيف عن اتصال Realtime الدائم (الذي يتقطع على 3G الضعيف):
+  // مجرد تحديث طابع زمني بسيط كل بضع دقائق، يُستخدم لإظهار "متصل الآن"
+  async function touchPresence() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return;
+    await sb.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", session.user.id);
+  }
+  function isOnline(lastSeenAt) {
+    if (!lastSeenAt) return false;
+    return Date.now() - new Date(lastSeenAt).getTime() < 3 * 60 * 1000;
+  }
+
   async function requireAuth() {
     const u = await currentUser();
     if (!u) {
@@ -116,7 +128,7 @@ const DB = (() => {
   // ---------------- عقارات ----------------
   const realEstate = {
     async list(filterFn) {
-      const { data, error } = await sb.from("real_estate_listings").select("*, owner:profiles!owner_id(full_name,phone)").order("created_at", { ascending: false });
+      const { data, error } = await sb.from("real_estate_listings").select("*, owner:profiles!owner_id(full_name,phone,last_seen_at)").order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
       let items = (data || []).map(mapListing);
       if (filterFn) items = items.filter(filterFn);
@@ -166,6 +178,7 @@ const DB = (() => {
       status: d.status,
       createdAt: d.created_at,
       ownerPhone: d.owner?.phone || "",
+      ownerOnline: isOnline(d.owner?.last_seen_at),
       coverImageUrl: d.cover_image_url || "",
     };
   }
@@ -179,7 +192,7 @@ const DB = (() => {
   // ---------------- مركبات / نقل ركاب ----------------
   const rides = {
     async list(filterFn) {
-      const { data, error } = await sb.from("ride_requests").select("*, passenger:profiles!passenger_id(full_name,phone)").order("created_at", { ascending: false });
+      const { data, error } = await sb.from("ride_requests").select("*, passenger:profiles!passenger_id(full_name,phone,last_seen_at)").order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
       let items = (data || []).map(mapRide);
       if (filterFn) items = items.filter(filterFn);
@@ -231,13 +244,14 @@ const DB = (() => {
       createdAt: d.created_at,
       passengerName: d.passenger?.full_name || "مستخدم",
       passengerPhone: d.passenger?.phone || "",
+      passengerOnline: isOnline(d.passenger?.last_seen_at),
     };
   }
 
   // ---------------- شحن ----------------
   const shipments = {
     async list(filterFn) {
-      const { data, error } = await sb.from("shipment_requests").select("*, sender:profiles!sender_id(full_name,phone)").order("created_at", { ascending: false });
+      const { data, error } = await sb.from("shipment_requests").select("*, sender:profiles!sender_id(full_name,phone,last_seen_at)").order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
       let items = (data || []).map(mapShipment);
       if (filterFn) items = items.filter(filterFn);
@@ -281,13 +295,14 @@ const DB = (() => {
       createdAt: d.created_at,
       senderName: d.sender?.full_name || "مستخدم",
       senderPhone: d.sender?.phone || "",
+      senderOnline: isOnline(d.sender?.last_seen_at),
     };
   }
 
   // ---------------- ربط تحويل الودايع ----------------
   const transfers = {
     async list(filterFn) {
-      const { data, error } = await sb.from("transfer_requests").select("*, requester:profiles!requester_id(full_name,phone)").order("created_at", { ascending: false });
+      const { data, error } = await sb.from("transfer_requests").select("*, requester:profiles!requester_id(full_name,phone,last_seen_at)").order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
       let items = (data || []).map(mapTransfer);
       if (filterFn) items = items.filter(filterFn);
@@ -334,6 +349,7 @@ const DB = (() => {
       createdAt: d.created_at,
       requesterName: d.requester?.full_name || "مستخدم",
       requesterPhone: d.requester?.phone || "",
+      requesterOnline: isOnline(d.requester?.last_seen_at),
     };
   }
 
@@ -379,7 +395,7 @@ const DB = (() => {
   const messages = {
     async list(filterFn) {
       const { data, error } = await sb.from("messages")
-        .select("*, sender:profiles!sender_id(full_name,phone), receiver:profiles!receiver_id(full_name,phone)")
+        .select("*, sender:profiles!sender_id(full_name,phone,last_seen_at), receiver:profiles!receiver_id(full_name,phone,last_seen_at)")
         .order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
       let items = data || [];
@@ -461,6 +477,7 @@ const DB = (() => {
 
   return {
     currentUser, signup, login, logout, requireAuth, uploadImage, notifyInterested,
+    touchPresence, isOnline,
     realEstate, rides, shipments, transfers, payments, messages,
     admin,
   };
