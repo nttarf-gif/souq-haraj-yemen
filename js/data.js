@@ -571,12 +571,15 @@ const DB = (() => {
     adminAlerts:        { table: "admin_alerts",         idCol: "id" },
     appErrors:          { table: "app_errors",           idCol: "id" },
     favorites:          { table: "favorites",             idCol: "id" },
+    siteVisits:         { table: "site_visits",            idCol: "id" },
   };
 
   const admin = {
     async list(key) {
       const cfg = ADMIN_TABLES[key];
-      const { data, error } = await sb.from(cfg.table).select("*").order("created_at", { ascending: false });
+      let q = sb.from(cfg.table).select("*").order("created_at", { ascending: false });
+      if (key === "siteVisits") q = q.limit(200); // log table can grow large; show latest only
+      const { data, error } = await q;
       if (error) throw new Error(error.message);
       return data || [];
     },

@@ -193,6 +193,20 @@
       ],
       listCols: ["target_type", "created_at"],
     },
+    siteVisits: {
+      label: "الزوار", icon: "👣", canAdd: false, canDelete: true,
+      columns: [
+        { key: "country", label: "الدولة", type: "text", readonly: true },
+        { key: "city", label: "المدينة", type: "text", readonly: true },
+        { key: "device_type", label: "نوع الجهاز", type: "enum", options: ["mobile", "tablet", "desktop"], readonly: true },
+        { key: "browser", label: "المتصفح", type: "text", readonly: true },
+        { key: "os", label: "النظام", type: "text", readonly: true },
+        { key: "page_path", label: "الصفحة", type: "text", readonly: true },
+        { key: "ip_address", label: "IP", type: "text", readonly: true },
+        { key: "created_at", label: "الوقت", type: "date", readonly: true },
+      ],
+      listCols: ["country", "city", "device_type", "browser", "page_path", "created_at"],
+    },
   };
 
   const STATUS_LABELS = {
@@ -206,6 +220,7 @@
     manual: "مراجعة يدوية", gateway: "بوابة دفع تلقائية",
     paused: "متوقف مؤقتًا",
     reviewed: "✅ تمت المراجعة", dismissed: "✖️ تم التجاهل",
+    mobile: "📱 جوال", tablet: "📱 تابلت", desktop: "💻 كمبيوتر",
   };
   function statusLabel(v) { return STATUS_LABELS[v] || v; }
 
