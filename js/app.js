@@ -81,6 +81,7 @@ function renderHeader(activeKey) {
         <span>سوق الحراج اليمني</span>
       </a>
       <div class="header-actions">
+        <a href="/pages/blog.html" class="icon-btn" title="مقالات ونصائح">📰</a>
         <a href="/pages/auth.html" class="icon-btn" id="hy-account-btn" title="حسابي">👤</a>
       </div>
     </div>`;
@@ -109,7 +110,7 @@ function renderHeader(activeKey) {
 function renderFooter() {
   const f = document.createElement("div");
   f.className = "footer-note";
-  f.textContent = "سوق الحراج اليمني — منصة إعلانات ووساطة بين الأفراد، مصممة لتعمل بسلاسة حتى مع إنترنت ضعيف.";
+  f.innerHTML = `سوق الحراج اليمني — منصة إعلانات ووساطة بين الأفراد، مصممة لتعمل بسلاسة حتى مع إنترنت ضعيف.<br><a href="/pages/blog.html" style="color:inherit;text-decoration:underline">📰 مقالات ونصائح</a>`;
   document.body.appendChild(f);
 }
 

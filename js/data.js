@@ -572,6 +572,7 @@ const DB = (() => {
     appErrors:          { table: "app_errors",           idCol: "id" },
     favorites:          { table: "favorites",             idCol: "id" },
     siteVisits:         { table: "site_visits",            idCol: "id" },
+    blogPosts:          { table: "blog_posts",              idCol: "id" },
   };
 
   const admin = {
@@ -655,6 +656,29 @@ const DB = (() => {
     },
   };
 
+  // ---------------- المدونة / المقالات (عامة، تظهر للجميع لأغراض السيو) ----------------
+  const blog = {
+    async list(limit) {
+      let q = sb.from("blog_posts").select("id,slug,title,excerpt,cover_emoji,category,published_at")
+        .eq("is_published", true).order("published_at", { ascending: false });
+      if (limit) q = q.limit(limit);
+      const { data, error } = await q;
+      if (error) throw new Error(error.message);
+      return data || [];
+    },
+    async getBySlug(slug) {
+      const { data, error } = await sb.from("blog_posts").select("*").eq("slug", slug).eq("is_published", true).maybeSingle();
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    async byCategory(category) {
+      const { data, error } = await sb.from("blog_posts").select("id,slug,title,excerpt,cover_emoji,category,published_at")
+        .eq("is_published", true).eq("category", category).order("published_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      return data || [];
+    },
+  };
+
   // يرسل إشعارًا (رسالة) لكل من راسل بخصوص هذا الإعلان/الطلب من قبل، عند تغيّر حالته
   async function notifyInterested(contextType, contextId, fromUserId, body) {
     const { data, error } = await sb.from("messages").select("sender_id,receiver_id")
@@ -673,7 +697,7 @@ const DB = (() => {
     touchPresence, isOnline, logClientError,
     realEstate, rides, shipments, transfers, payments, messages, offers,
     serviceCategories, serviceListings,
-    favorites,
+    favorites, blog,
     admin,
   };
 })();

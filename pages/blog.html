@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>مدونة سوق الحراج اليمني — مقالات ونصائح عن العقارات والسيارات والشحن والحوالات</title>
+<meta name="description" content="مقالات ونصائح عملية: شراء وبيع العقارات في اليمن، أسعار السيارات، الشحن بين اليمن والسعودية، تحويل الحوالات، وخدمات حرة. دليلك الشامل لسوق الحراج اليمني.">
+<link rel="canonical" href="https://souqalharaj1.com/pages/blog.html">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="سوق الحراج اليمني">
+<meta property="og:locale" content="ar_YE">
+<meta property="og:title" content="مدونة سوق الحراج اليمني">
+<meta property="og:description" content="مقالات ونصائح عملية عن العقارات، السيارات، الشحن، والحوالات بين اليمن والسعودية.">
+<meta property="og:url" content="https://souqalharaj1.com/pages/blog.html">
+<link rel="stylesheet" href="/css/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  "name": "مدونة سوق الحراج اليمني",
+  "url": "https://souqalharaj1.com/pages/blog.html",
+  "inLanguage": "ar",
+  "publisher": { "@type": "Organization", "name": "سوق الحراج اليمني", "url": "https://souqalharaj1.com/" }
+}
+</script>
+</head>
+<body>
+<main>
+  <div class="container">
+    <div class="page-head">
+      <h2>📰 مقالات ونصائح</h2>
+      <p>دليلك لسوق العقارات والسيارات والشحن والحوالات في اليمن والسعودية</p>
+    </div>
+
+    <div class="tabs" id="cat-tabs" style="flex-wrap:wrap">
+      <button data-c="all" class="active">الكل</button>
+    </div>
+
+    <div id="posts-list"></div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/data.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/visit-tracker.js"></script>
+<script>
+  initChrome("blog");
+
+  let allPosts = [];
+  let activeCat = "all";
+
+  function fmtDate(iso) {
+    try { return new Date(iso).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" }); }
+    catch (e) { return ""; }
+  }
+
+  function renderTabs() {
+    const cats = [...new Set(allPosts.map((p) => p.category).filter(Boolean))];
+    const tabs = document.getElementById("cat-tabs");
+    tabs.innerHTML = `<button data-c="all" class="${activeCat === "all" ? "active" : ""}">الكل</button>` +
+      cats.map((c) => `<button data-c="${esc(c)}" class="${activeCat === c ? "active" : ""}">${esc(c)}</button>`).join("");
+    tabs.querySelectorAll("button").forEach((b) => {
+      b.onclick = () => {
+        activeCat = b.dataset.c;
+        renderTabs();
+        renderList();
+      };
+    });
+  }
+
+  function renderList() {
+    const box = document.getElementById("posts-list");
+    const items = activeCat === "all" ? allPosts : allPosts.filter((p) => p.category === activeCat);
+    if (!items.length) {
+      box.innerHTML = `<div class="empty-state"><span class="ic">📰</span>لا توجد مقالات في هذا التصنيف بعد.</div>`;
+      return;
+    }
+    box.innerHTML = items.map((p) => `
+      <a href="/pages/blog-post.html?slug=${encodeURIComponent(p.slug)}" class="card listing-card" style="display:block;text-decoration:none;color:inherit">
+        <div class="top-row">
+          <h4>${esc(p.cover_emoji || "📝")} ${esc(p.title)}</h4>
+        </div>
+        <div class="meta-row">
+          ${p.category ? `<span class="badge">${esc(p.category)}</span>` : ""}
+          <span style="font-size:.72rem">${fmtDate(p.published_at)}</span>
+        </div>
+        ${p.excerpt ? `<p style="margin:4px 0 0;font-size:.85rem;color:var(--ink-light)">${esc(p.excerpt)}</p>` : ""}
+      </a>
+    `).join("");
+  }
+
+  async function load() {
+    try {
+      allPosts = await DB.blog.list();
+    } catch (e) {
+      allPosts = [];
+    }
+    renderTabs();
+    renderList();
+  }
+
+  load();
+  renderFooter();
+</script>
+</body>
+</html>

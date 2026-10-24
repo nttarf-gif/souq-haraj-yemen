@@ -207,6 +207,24 @@
       ],
       listCols: ["country", "city", "device_type", "browser", "page_path", "created_at"],
     },
+    blogPosts: {
+      label: "المقالات", icon: "📰", canAdd: true, canDelete: true,
+      columns: [
+        { key: "title", label: "العنوان", type: "text", required: true },
+        { key: "slug", label: "الرابط (slug)", type: "text", required: true },
+        { key: "category", label: "التصنيف", type: "text" },
+        { key: "excerpt", label: "مقتطف", type: "textarea" },
+        { key: "content_html", label: "المحتوى (HTML)", type: "textarea", required: true },
+        { key: "cover_emoji", label: "أيقونة", type: "text" },
+        { key: "meta_title", label: "عنوان السيو", type: "text" },
+        { key: "meta_description", label: "وصف السيو", type: "textarea" },
+        { key: "keywords", label: "كلمات مفتاحية", type: "text" },
+        { key: "is_published", label: "منشور", type: "enum", options: ["true", "false"] },
+        { key: "published_at", label: "تاريخ النشر", type: "date" },
+        { key: "views", label: "المشاهدات", type: "text", readonly: true },
+      ],
+      listCols: ["title", "category", "is_published", "views", "published_at"],
+    },
   };
 
   const STATUS_LABELS = {

@@ -7,4 +7,4 @@ Disallow: /pages/chat.html
 Disallow: /pages/inbox.html
 Disallow: /pages/favorites.html
 
-Sitemap: https://souq-haraj-yemen-app.netlify.app/sitemap.xml
+Sitemap: https://souqalharaj1.com/sitemap.xml
